@@ -14,12 +14,12 @@ enum DisplayWallState {
 }
 
 impl DisplayWallState {
-    fn to_color(self) -> termion::color::Rgb {
+    fn to_color(self) -> &'static str {
         match self {
-            DisplayWallState::Wall => termion::color::Rgb(0xff, 0xff, 0xff),
-            DisplayWallState::Candidate => termion::color::Rgb(0x60, 0xff, 0x60),
-            DisplayWallState::Open => termion::color::Rgb(0x60, 0x60, 0x60),
-            DisplayWallState::Collision => termion::color::Rgb(0xff, 0x60, 0x60),
+            DisplayWallState::Wall => termion::color::Yellow.fg_str(),
+            DisplayWallState::Candidate => termion::color::Green.fg_str(),
+            DisplayWallState::Open => termion::color::LightBlue.fg_str(),
+            DisplayWallState::Collision => termion::color::Red.fg_str(),
         }
     }
 
@@ -43,7 +43,7 @@ fn display_cell<W: Write>(
             screen,
             "{}{}|",
             termion::cursor::Goto((2 * x + 2) as u16, (2 * y + 1) as u16),
-            cell.right.to_color().fg_string()
+            cell.right.to_color()
         )?;
     }
     if y != 8 {
@@ -51,10 +51,10 @@ fn display_cell<W: Write>(
             screen,
             "{}{}-",
             termion::cursor::Goto((2 * x + 1) as u16, (2 * y + 2) as u16),
-            cell.bottom.to_color().fg_string()
+            cell.bottom.to_color()
         )?;
         if x != 8 {
-            write!(screen, "{}+", cell.joint.to_color().fg_string())?;
+            write!(screen, "{}+", cell.joint.to_color())?;
         }
     }
 
@@ -244,7 +244,7 @@ fn display<W: Write>(
                     write!(
                         screen,
                         "{}{}#",
-                        DisplayWallState::Candidate.to_color().fg_string(),
+                        DisplayWallState::Candidate.to_color(),
                         termion::cursor::Goto(
                             (2 * candidate_pos.0 + 1) as u16,
                             (2 * candidate_pos.1 + 1) as u16

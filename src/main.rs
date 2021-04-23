@@ -1,3 +1,7 @@
+use clap::{AppSettings, Clap};
+use display::DisplayError;
+use serde::{Deserialize, Serialize};
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum WallState {
     Wall,
@@ -107,7 +111,7 @@ impl Board {
     }
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
 pub enum Direction {
     Up,
     Down,
@@ -150,6 +154,7 @@ impl Direction {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
 pub enum Move {
     AddWall {
         horizontal: bool,
@@ -158,30 +163,93 @@ pub enum Move {
     MoveToken(Direction),
 }
 
+#[derive(Debug)]
+pub enum Error {
+    DisplayError(DisplayError),
+    TcpError(tcp::GameError),
+}
+
 mod display;
+mod tcp;
 
-fn main() -> Result<(), display::DisplayError> {
-    let mut b = Board::empty();
-    let mut candidate = Move::MoveToken(Direction::Down);
-    let mut d = display::Display::new();
-    let mut player = Player::Player1;
+#[derive(Clap)]
+#[clap(version = "1.0", author = "Sheyne Anderson")]
+#[clap(setting = AppSettings::ColoredHelp)]
+struct Opts {
+    #[clap(subcommand)]
+    action: LaunchAction,
 
-    loop {
-        d.show(&b)?;
-        d.get_move(&b, &player, &mut candidate)?;
-        match candidate {
-            Move::AddWall {
-                location,
-                horizontal,
-            } => {
-                b.add_wall(&location, horizontal);
-            }
-            Move::MoveToken(d) => {
-                if let Some(new_loc) = d.shift(&b.location(&player)) {
-                    *b.location_mut(&player) = new_loc;
-                }
+    #[clap(long)]
+    player: usize,
+}
+
+#[derive(Clap)]
+enum LaunchAction {
+    Serve {
+        #[clap(long, default_value = "3333")]
+        port: u16,
+    },
+    Connect {
+        connect: String,
+    },
+}
+
+fn apply_move(board: &mut Board, candidate: &Move, player: &Player) {
+    match candidate {
+        Move::AddWall {
+            location,
+            horizontal,
+        } => {
+            board.add_wall(&location, *horizontal);
+        }
+        Move::MoveToken(d) => {
+            if let Some(new_loc) = d.shift(&board.location(&player)) {
+                *board.location_mut(&player) = new_loc;
             }
         }
-        player = player.other();
+    }
+}
+
+fn main() -> Result<(), Error> {
+    let opts: Opts = Opts::parse();
+
+    let mut tcp = match opts.action {
+        LaunchAction::Serve { port } => tcp::Game::serve(format!("0.0.0.0:{}", port)),
+        LaunchAction::Connect { connect } => tcp::Game::connect(connect),
+    };
+
+    let mut board = Board::empty();
+    let mut display = display::Display::new();
+    let iam = if opts.player == 1 {
+        Player::Player1
+    } else {
+        Player::Player2
+    };
+
+    let mut current_player = Player::Player1;
+
+    let mut candidate = Move::MoveToken(Direction::Down);
+    loop {
+        display.show(&board).map_err(Error::DisplayError)?;
+        if current_player == iam {
+            display
+                .get_move(&board, &iam, &mut candidate)
+                .map_err(Error::DisplayError)?;
+            if !board.is_legal(&iam, &candidate) {
+                todo!();
+            }
+
+            apply_move(&mut board, &candidate, &iam);
+
+            tcp.send(&candidate).map_err(Error::TcpError)?;
+        } else {
+            let candidate = tcp.receive().map_err(Error::TcpError)?;
+            if !board.is_legal(&current_player, &candidate) {
+                todo!();
+            }
+
+            apply_move(&mut board, &candidate, &current_player);
+        }
+        current_player = current_player.other();
     }
 }
