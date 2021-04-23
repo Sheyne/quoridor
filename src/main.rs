@@ -169,6 +169,17 @@ pub enum Error {
     TcpError(tcp::GameError),
 }
 
+impl From<DisplayError> for Error {
+    fn from(e: DisplayError) -> Error {
+        Error::DisplayError(e)
+    }
+}
+impl From<tcp::GameError> for Error {
+    fn from(e: tcp::GameError) -> Error {
+        Error::TcpError(e)
+    }
+}
+
 mod display;
 mod tcp;
 
@@ -216,10 +227,10 @@ fn main() -> Result<(), Error> {
     let mut tcp = match opts.action {
         LaunchAction::Serve { port } => tcp::Game::serve(format!("0.0.0.0:{}", port)),
         LaunchAction::Connect { connect } => tcp::Game::connect(connect),
-    };
+    }?;
 
     let mut board = Board::empty();
-    let mut display = display::Display::new();
+    let mut display = display::Display::new()?;
     let iam = if opts.player == 1 {
         Player::Player1
     } else {
@@ -230,20 +241,18 @@ fn main() -> Result<(), Error> {
 
     let mut candidate = Move::MoveToken(Direction::Down);
     loop {
-        display.show(&board).map_err(Error::DisplayError)?;
+        display.show(&board)?;
         if current_player == iam {
-            display
-                .get_move(&board, &iam, &mut candidate)
-                .map_err(Error::DisplayError)?;
+            display.get_move(&board, &iam, &mut candidate)?;
             if !board.is_legal(&iam, &candidate) {
                 todo!();
             }
 
             apply_move(&mut board, &candidate, &iam);
 
-            tcp.send(&candidate).map_err(Error::TcpError)?;
+            tcp.send(&candidate)?;
         } else {
-            let candidate = tcp.receive().map_err(Error::TcpError)?;
+            let candidate = tcp.receive()?;
             if !board.is_legal(&current_player, &candidate) {
                 todo!();
             }

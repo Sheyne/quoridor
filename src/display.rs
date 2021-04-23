@@ -1,9 +1,15 @@
 use super::*;
-use std::io::{stdin, stdout, Stdout, Write};
-use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::{IntoRawMode, RawTerminal};
-use termion::screen::*;
+use crossterm::{
+    event::{read, Event, KeyCode},
+    execute, queue,
+    style::{Print, SetForegroundColor},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
+        LeaveAlternateScreen,
+    },
+    ErrorKind,
+};
+use std::io::{stdout, Write};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum DisplayWallState {
@@ -14,12 +20,12 @@ enum DisplayWallState {
 }
 
 impl DisplayWallState {
-    fn to_color(self) -> &'static str {
+    fn to_color(self) -> crossterm::style::Color {
         match self {
-            DisplayWallState::Wall => termion::color::Yellow.fg_str(),
-            DisplayWallState::Candidate => termion::color::Green.fg_str(),
-            DisplayWallState::Open => termion::color::LightBlue.fg_str(),
-            DisplayWallState::Collision => termion::color::Red.fg_str(),
+            DisplayWallState::Wall => crossterm::style::Color::Yellow,
+            DisplayWallState::Candidate => crossterm::style::Color::Green,
+            DisplayWallState::Open => crossterm::style::Color::Blue,
+            DisplayWallState::Collision => crossterm::style::Color::Red,
         }
     }
 
@@ -31,32 +37,45 @@ impl DisplayWallState {
     }
 }
 
+impl From<std::io::Error> for DisplayError {
+    fn from(e: std::io::Error) -> DisplayError {
+        DisplayError::IoError(e)
+    }
+}
+impl From<ErrorKind> for DisplayError {
+    fn from(e: ErrorKind) -> DisplayError {
+        DisplayError::CrosstermError(e)
+    }
+}
+
 type DisplayCell = Cell<DisplayWallState>;
 
-fn display_cell<W: Write>(
-    screen: &mut W,
-    cell: &DisplayCell,
-    (x, y): (usize, usize),
-) -> Result<(), std::io::Error> {
+fn display_cell(cell: &DisplayCell, (x, y): (usize, usize)) -> Result<(), DisplayError> {
     if x != 8 {
-        write!(
-            screen,
-            "{}{}|",
-            termion::cursor::Goto((2 * x + 2) as u16, (2 * y + 1) as u16),
-            cell.right.to_color()
+        queue!(
+            stdout(),
+            crossterm::cursor::MoveTo((2 * x + 1) as u16, (2 * y) as u16),
+            SetForegroundColor(cell.right.to_color()),
+            Print("|")
         )?;
     }
     if y != 8 {
-        write!(
-            screen,
-            "{}{}-",
-            termion::cursor::Goto((2 * x + 1) as u16, (2 * y + 2) as u16),
-            cell.bottom.to_color()
+        queue!(
+            stdout(),
+            crossterm::cursor::MoveTo((2 * x + 0) as u16, (2 * y + 1) as u16),
+            SetForegroundColor(cell.bottom.to_color()),
+            Print("-")
         )?;
         if x != 8 {
-            write!(screen, "{}+", cell.joint.to_color())?;
+            queue!(
+                stdout(),
+                SetForegroundColor(cell.joint.to_color()),
+                Print("+")
+            )?;
         }
     }
+
+    stdout().flush()?;
 
     Ok(())
 }
@@ -64,20 +83,24 @@ fn display_cell<W: Write>(
 #[derive(Debug)]
 pub enum DisplayError {
     Quit,
+    CrosstermError(ErrorKind),
     IoError(std::io::Error),
 }
 
-pub struct Display {
-    screen: termion::cursor::HideCursor<AlternateScreen<RawTerminal<Stdout>>>,
+pub struct Display;
+
+impl Drop for Display {
+    fn drop(&mut self) {
+        disable_raw_mode().unwrap();
+        execute!(stdout(), LeaveAlternateScreen).unwrap();
+    }
 }
 
 impl Display {
-    pub fn new() -> Self {
-        Self {
-            screen: termion::cursor::HideCursor::from(AlternateScreen::from(
-                stdout().into_raw_mode().unwrap(),
-            )),
-        }
+    pub fn new() -> Result<Self, DisplayError> {
+        execute!(stdout(), EnterAlternateScreen)?;
+        enable_raw_mode()?;
+        Ok(Self)
     }
 
     pub fn get_move(
@@ -86,90 +109,85 @@ impl Display {
         player: &Player,
         candidate_move: &mut Move,
     ) -> Result<(), DisplayError> {
-        write!(self.screen, "{}", termion::clear::All,).map_err(DisplayError::IoError)?;
-        display(&mut self.screen, &board, Some((player, candidate_move)))
-            .map_err(DisplayError::IoError)?;
-        self.screen.flush().unwrap();
-        let stdin = stdin();
-        for c in stdin.keys() {
-            match c.unwrap() {
-                Key::Char('q') => break,
-                Key::Char(' ') => {
-                    if board.is_legal(player, candidate_move) {
-                        return Ok(());
+        queue!(stdout(), Clear(ClearType::All))?;
+        display(&board, Some((player, candidate_move)))?;
+        stdout().flush()?;
+        loop {
+            if let Event::Key(event) = read()? {
+                match event.code {
+                    KeyCode::Char('q') => break,
+                    KeyCode::Char(' ') => {
+                        if board.is_legal(player, candidate_move) {
+                            return Ok(());
+                        }
                     }
-                }
-                Key::Char('m') => {
-                    *candidate_move = match candidate_move {
+                    KeyCode::Char('m') => {
+                        *candidate_move = match candidate_move {
+                            Move::AddWall {
+                                location: _,
+                                horizontal: _,
+                            } => Move::MoveToken(Direction::Up),
+                            Move::MoveToken(_) => Move::AddWall {
+                                location: (4, 4),
+                                horizontal: true,
+                            },
+                        }
+                    }
+                    KeyCode::Char('/') | KeyCode::Char('r') => match candidate_move {
                         Move::AddWall {
+                            horizontal,
                             location: _,
-                            horizontal: _,
-                        } => Move::MoveToken(Direction::Up),
-                        Move::MoveToken(_) => Move::AddWall {
-                            location: (4, 4),
-                            horizontal: true,
-                        },
-                    }
-                }
-                Key::Char('/') | Key::Char('r') => match candidate_move {
-                    Move::AddWall {
-                        horizontal,
-                        location: _,
-                    } => *horizontal = !*horizontal,
+                        } => *horizontal = !*horizontal,
 
-                    Move::MoveToken(_) => (),
-                },
-                Key::Left => match candidate_move {
-                    Move::AddWall {
-                        horizontal: _,
-                        location: (x, _),
-                    } => *x = if *x > 0 { *x - 1 } else { 0 },
-                    Move::MoveToken(d) => *d = Direction::Left,
-                },
-                Key::Right => match candidate_move {
-                    Move::AddWall {
-                        horizontal: _,
-                        location: (x, _),
-                    } => *x = if *x < 7 { *x + 1 } else { 7 },
-                    Move::MoveToken(d) => *d = Direction::Right,
-                },
-                Key::Up => match candidate_move {
-                    Move::AddWall {
-                        horizontal: _,
-                        location: (_, y),
-                    } => *y = if *y > 0 { *y - 1 } else { 0 },
-                    Move::MoveToken(d) => *d = Direction::Up,
-                },
-                Key::Down => match candidate_move {
-                    Move::AddWall {
-                        horizontal: _,
-                        location: (_, y),
-                    } => *y = if *y < 7 { *y + 1 } else { 7 },
-                    Move::MoveToken(d) => *d = Direction::Down,
-                },
-                _ => {}
+                        Move::MoveToken(_) => (),
+                    },
+                    KeyCode::Left => match candidate_move {
+                        Move::AddWall {
+                            horizontal: _,
+                            location: (x, _),
+                        } => *x = if *x > 0 { *x - 1 } else { 0 },
+                        Move::MoveToken(d) => *d = Direction::Left,
+                    },
+                    KeyCode::Right => match candidate_move {
+                        Move::AddWall {
+                            horizontal: _,
+                            location: (x, _),
+                        } => *x = if *x < 7 { *x + 1 } else { 7 },
+                        Move::MoveToken(d) => *d = Direction::Right,
+                    },
+                    KeyCode::Up => match candidate_move {
+                        Move::AddWall {
+                            horizontal: _,
+                            location: (_, y),
+                        } => *y = if *y > 0 { *y - 1 } else { 0 },
+                        Move::MoveToken(d) => *d = Direction::Up,
+                    },
+                    KeyCode::Down => match candidate_move {
+                        Move::AddWall {
+                            horizontal: _,
+                            location: (_, y),
+                        } => *y = if *y < 7 { *y + 1 } else { 7 },
+                        Move::MoveToken(d) => *d = Direction::Down,
+                    },
+                    _ => {}
+                }
             }
-            write!(self.screen, "{}", termion::clear::All,).map_err(DisplayError::IoError)?;
-            display(&mut self.screen, &board, Some((player, &candidate_move)))
-                .map_err(DisplayError::IoError)?;
-            self.screen.flush().unwrap();
+            queue!(stdout(), Clear(ClearType::All),)?;
+            display(&board, Some((player, &candidate_move)))?;
+            stdout().flush()?;
         }
         Err(DisplayError::Quit)
     }
 
     pub fn show(&mut self, board: &Board) -> Result<(), DisplayError> {
-        write!(self.screen, "{}", termion::clear::All,).map_err(DisplayError::IoError)?;
-        display(&mut self.screen, board, None).map_err(DisplayError::IoError)?;
-        self.screen.flush().unwrap();
+        queue!(stdout(), Clear(ClearType::All))?;
+        display(board, None)?;
+        stdout().flush()?;
         Ok(())
     }
 }
 
-fn display<W: Write>(
-    screen: &mut W,
-    board: &Board,
-    player_and_move: Option<(&Player, &Move)>,
-) -> Result<(), std::io::Error> {
+fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(), DisplayError> {
     for (y, cells) in board.cells.iter().enumerate() {
         for (x, cell) in cells.iter().enumerate() {
             let mut cell = DisplayCell {
@@ -224,16 +242,16 @@ fn display<W: Write>(
                 }
             }
 
-            display_cell(screen, &cell, (x, y))?;
+            display_cell(&cell, (x, y))?;
         }
     }
 
     for player in [Player::Player1, Player::Player2].iter() {
         let loc = board.location(player);
-        write!(
-            screen,
-            "{}X",
-            termion::cursor::Goto((2 * loc.0 + 1) as u16, (2 * loc.1 + 1) as u16),
+        queue!(
+            stdout(),
+            crossterm::cursor::MoveTo((2 * loc.0) as u16, (2 * loc.1) as u16),
+            Print("X")
         )?;
     }
 
@@ -241,21 +259,22 @@ fn display<W: Write>(
         if board.is_legal(player, candidate_move) {
             if let Move::MoveToken(d) = candidate_move {
                 if let Some(candidate_pos) = d.shift(board.location(player)) {
-                    write!(
-                        screen,
-                        "{}{}#",
-                        DisplayWallState::Candidate.to_color(),
-                        termion::cursor::Goto(
-                            (2 * candidate_pos.0 + 1) as u16,
-                            (2 * candidate_pos.1 + 1) as u16
+                    queue!(
+                        stdout(),
+                        SetForegroundColor(DisplayWallState::Candidate.to_color()),
+                        crossterm::cursor::MoveTo(
+                            (2 * candidate_pos.0) as u16,
+                            (2 * candidate_pos.1) as u16
                         ),
+                        Print("#")
                     )?;
                 }
             }
         }
     }
 
-    write!(screen, "{}", termion::cursor::Goto(0, 18),)?;
+    queue!(stdout(), crossterm::cursor::MoveTo(0, 17),)?;
+    stdout().flush()?;
 
     Ok(())
 }

@@ -16,28 +16,28 @@ pub enum GameError {
 }
 
 impl Game {
-    fn from_tcp(stream: TcpStream) -> Self {
-        Self {
-            reader: BufReader::new(stream.try_clone().unwrap()),
+    fn from_tcp(stream: TcpStream) -> std::io::Result<Self> {
+        Ok(Self {
+            reader: BufReader::new(stream.try_clone()?),
             writer: BufWriter::new(stream),
-        }
+        })
     }
 
-    pub fn serve<A: ToSocketAddrs>(addr: A) -> Self {
+    pub fn serve<A: ToSocketAddrs>(addr: A) -> Result<Self, GameError> {
         let listener = TcpListener::bind(addr).unwrap();
         // accept connections and process them, spawning a new thread for each one
         for stream in listener.incoming() {
             match stream {
-                Ok(stream) => return Game::from_tcp(stream),
+                Ok(stream) => return Ok(Game::from_tcp(stream).map_err(GameError::IoError)?),
                 _ => todo!(),
             }
         }
         todo!()
     }
 
-    pub fn connect<A: ToSocketAddrs>(addr: A) -> Self {
+    pub fn connect<A: ToSocketAddrs>(addr: A) -> Result<Self, GameError> {
         match TcpStream::connect(addr) {
-            Ok(stream) => Game::from_tcp(stream),
+            Ok(stream) => Ok(Game::from_tcp(stream).map_err(GameError::IoError)?),
             _ => todo!(),
         }
     }
