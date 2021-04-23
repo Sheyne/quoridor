@@ -1,90 +1,106 @@
-use std::io::{stdin, stdout, Write};
-use termion::event::Key;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
-use termion::screen::*;
-
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum WallState {
+pub enum WallState {
     Wall,
     Open,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum DisplayWallState {
-    Wall,
-    Open,
-    Candidate,
-    Collision,
-}
-
-impl WallState {
-    fn to_diplay(self) -> DisplayWallState {
-        match self {
-            WallState::Wall => DisplayWallState::Wall,
-            WallState::Open => DisplayWallState::Open,
-        }
-    }
-}
-
-impl DisplayWallState {
-    fn to_color(self) -> termion::color::Rgb {
-        match self {
-            DisplayWallState::Wall => termion::color::Rgb(0xff, 0xff, 0xff),
-            DisplayWallState::Candidate => termion::color::Rgb(0x60, 0xff, 0x60),
-            DisplayWallState::Open => termion::color::Rgb(0x60, 0x60, 0x60),
-            DisplayWallState::Collision => termion::color::Rgb(0xff, 0x60, 0x60),
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-struct Cell<WS> {
+pub struct Cell<WS> {
     right: WS,
     bottom: WS,
     joint: WS,
 }
 
-type RegularCell = Cell<WallState>;
-type DisplayCell = Cell<DisplayWallState>;
+pub type RegularCell = Cell<WallState>;
 
 #[derive(Clone, PartialEq, Eq)]
-struct Board {
+pub struct Board {
     cells: [[RegularCell; 9]; 9],
+    player1_loc: (usize, usize),
+    player2_loc: (usize, usize),
 }
 
 impl Board {
-    fn add_wall(&mut self, x: usize, y: usize, horizontal: bool) {
-        if horizontal {
-            self.cells[y][x].bottom = WallState::Wall;
-            self.cells[y][x].joint = WallState::Wall;
-            self.cells[y][x + 1].bottom = WallState::Wall;
-        } else {
-            self.cells[y][x].right = WallState::Wall;
-            self.cells[y][x].joint = WallState::Wall;
-            self.cells[y + 1][x].right = WallState::Wall;
+    fn empty() -> Self {
+        let open_cell = RegularCell {
+            right: WallState::Open,
+            bottom: WallState::Open,
+            joint: WallState::Open,
+        };
+
+        let open_cells = [
+            open_cell, open_cell, open_cell, open_cell, open_cell, open_cell, open_cell, open_cell,
+            open_cell,
+        ];
+
+        Board {
+            cells: [
+                open_cells, open_cells, open_cells, open_cells, open_cells, open_cells, open_cells,
+                open_cells, open_cells,
+            ],
+            player1_loc: (4, 0),
+            player2_loc: (4, 8),
         }
     }
 
-    fn is_legal(&self, loc: &(usize, usize), candidate_move: &CandidateMove) -> bool {
+    fn add_wall(&mut self, location: &(usize, usize), horizontal: bool) {
+        if horizontal {
+            self.cell_mut(location).bottom = WallState::Wall;
+            self.cell_mut(location).joint = WallState::Wall;
+            self.cell_mut(&(location.0 + 1, location.1)).bottom = WallState::Wall;
+        } else {
+            self.cell_mut(location).right = WallState::Wall;
+            self.cell_mut(location).joint = WallState::Wall;
+            self.cell_mut(&(location.0, location.1 + 1)).right = WallState::Wall;
+        }
+    }
+
+    pub fn cell(&self, (x, y): &(usize, usize)) -> &RegularCell {
+        &self.cells[*y][*x]
+    }
+
+    pub fn cell_mut(&mut self, (x, y): &(usize, usize)) -> &mut RegularCell {
+        &mut self.cells[*y][*x]
+    }
+
+    pub fn location(&self, player: &Player) -> &(usize, usize) {
+        match player {
+            Player::Player1 => &self.player1_loc,
+            Player::Player2 => &self.player2_loc,
+        }
+    }
+
+    pub fn location_mut(&mut self, player: &Player) -> &mut (usize, usize) {
+        match player {
+            Player::Player1 => &mut self.player1_loc,
+            Player::Player2 => &mut self.player2_loc,
+        }
+    }
+
+    fn is_legal(&self, player: &Player, candidate_move: &Move) -> bool {
         match candidate_move {
-            CandidateMove::Wall { x, y, horizontal } => {
-                self.cells[*y][*x].joint == WallState::Open
+            Move::AddWall {
+                location,
+                horizontal,
+            } => {
+                let (x, y) = *location;
+                self.cell(&location).joint == WallState::Open
                     && if *horizontal {
-                        self.cells[*y][*x].bottom == WallState::Open
-                            && self.cells[*y][*x + 1].bottom == WallState::Open
+                        self.cell(&location).bottom == WallState::Open
+                            && self.cell(&(x + 1, y)).bottom == WallState::Open
                     } else {
-                        self.cells[*y][*x].right == WallState::Open
-                            && self.cells[*y + 1][*x].right == WallState::Open
+                        self.cell(&location).right == WallState::Open
+                            && self.cell(&(x, y + 1)).right == WallState::Open
                     }
             }
-            CandidateMove::Move(direction) => {
+            Move::MoveToken(direction) => {
+                let loc = self.location(player);
                 direction.shift(loc).is_some()
                     && match direction {
-                        Direction::Down => self.cells[loc.1][loc.0].bottom == WallState::Open,
-                        Direction::Up => self.cells[loc.1 - 1][loc.0].bottom == WallState::Open,
-                        Direction::Left => self.cells[loc.1][loc.0 - 1].right == WallState::Open,
-                        Direction::Right => self.cells[loc.1][loc.0].right == WallState::Open,
+                        Direction::Down => self.cell(&(loc.0, loc.1)).bottom == WallState::Open,
+                        Direction::Up => self.cell(&(loc.0, loc.1 - 1)).bottom == WallState::Open,
+                        Direction::Left => self.cell(&(loc.0 - 1, loc.1)).right == WallState::Open,
+                        Direction::Right => self.cell(&(loc.0, loc.1)).right == WallState::Open,
                     }
             }
         }
@@ -92,11 +108,25 @@ impl Board {
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
-enum Direction {
+pub enum Direction {
     Up,
     Down,
     Left,
     Right,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum Player {
+    Player1,
+    Player2,
+}
+impl Player {
+    pub fn other(&self) -> Player {
+        match self {
+            Player::Player1 => Player::Player2,
+            Player::Player2 => Player::Player1,
+        }
+    }
 }
 
 impl Direction {
@@ -120,235 +150,38 @@ impl Direction {
     }
 }
 
-enum CandidateMove {
-    Wall {
+pub enum Move {
+    AddWall {
         horizontal: bool,
-        x: usize,
-        y: usize,
+        location: (usize, usize),
     },
-    Move(Direction),
+    MoveToken(Direction),
 }
 
-fn display_cell<W: Write>(
-    screen: &mut W,
-    cell: &DisplayCell,
-    (x, y): (usize, usize),
-) -> Result<(), std::io::Error> {
-    if x != 8 {
-        write!(
-            screen,
-            "{}{}|",
-            termion::cursor::Goto((2 * x + 2) as u16, (2 * y + 1) as u16),
-            cell.right.to_color().fg_string()
-        )?;
-    }
-    if y != 8 {
-        write!(
-            screen,
-            "{}{}-",
-            termion::cursor::Goto((2 * x + 1) as u16, (2 * y + 2) as u16),
-            cell.bottom.to_color().fg_string()
-        )?;
-        if x != 8 {
-            write!(screen, "{}+", cell.joint.to_color().fg_string())?;
-        }
-    }
+mod display;
 
-    Ok(())
-}
+fn main() -> Result<(), display::DisplayError> {
+    let mut b = Board::empty();
+    let mut candidate = Move::MoveToken(Direction::Down);
+    let mut d = display::Display::new();
+    let mut player = Player::Player1;
 
-fn display<W: Write>(
-    screen: &mut W,
-    board: &Board,
-    player: &(usize, usize),
-    candidate_move: &CandidateMove,
-) -> Result<(), std::io::Error> {
-    for (y, cells) in board.cells.iter().enumerate() {
-        for (x, cell) in cells.iter().enumerate() {
-            let mut cell = DisplayCell {
-                right: cell.right.to_diplay(),
-                bottom: cell.bottom.to_diplay(),
-                joint: cell.joint.to_diplay(),
-            };
-
-            match candidate_move {
-                CandidateMove::Wall {
-                    horizontal: false,
-                    x: cx,
-                    y: cy,
-                } if x == *cx && (y == *cy || y == *cy + 1) => {
-                    cell.right = if cell.right == DisplayWallState::Open {
-                        DisplayWallState::Candidate
-                    } else {
-                        DisplayWallState::Collision
-                    };
-                }
-                CandidateMove::Wall {
-                    horizontal: true,
-                    x: cx,
-                    y: cy,
-                } if y == *cy && (x == *cx || x == *cx + 1) => {
-                    cell.bottom = if cell.bottom == DisplayWallState::Open {
-                        DisplayWallState::Candidate
-                    } else {
-                        DisplayWallState::Collision
-                    };
-                }
-                _ => (),
+    loop {
+        d.show(&b)?;
+        d.get_move(&b, &player, &mut candidate)?;
+        match candidate {
+            Move::AddWall {
+                location,
+                horizontal,
+            } => {
+                b.add_wall(&location, horizontal);
             }
-            if let CandidateMove::Wall {
-                horizontal: _,
-                x: cx,
-                y: cy,
-            } = candidate_move
-            {
-                if x == *cx && y == *cy {
-                    cell.joint = if cell.joint == DisplayWallState::Open {
-                        DisplayWallState::Candidate
-                    } else {
-                        DisplayWallState::Collision
-                    };
+            Move::MoveToken(d) => {
+                if let Some(new_loc) = d.shift(&b.location(&player)) {
+                    *b.location_mut(&player) = new_loc;
                 }
-            }
-
-            display_cell(screen, &cell, (x, y))?;
-        }
-    }
-    write!(
-        screen,
-        "{}X",
-        termion::cursor::Goto((2 * player.0 + 1) as u16, (2 * player.1 + 1) as u16),
-    )?;
-
-    if board.is_legal(player, candidate_move) {
-        if let CandidateMove::Move(d) = candidate_move {
-            if let Some(candidate_pos) = d.shift(player) {
-                write!(
-                    screen,
-                    "{}{}#",
-                    DisplayWallState::Candidate.to_color().fg_string(),
-                    termion::cursor::Goto(
-                        (2 * candidate_pos.0 + 1) as u16,
-                        (2 * candidate_pos.1 + 1) as u16
-                    ),
-                )?;
             }
         }
+        player = player.other();
     }
-
-    write!(screen, "{}", termion::cursor::Goto(0, 18),)?;
-
-    Ok(())
-}
-
-fn main() -> Result<(), std::io::Error> {
-    let open_cell = RegularCell {
-        right: WallState::Open,
-        bottom: WallState::Open,
-        joint: WallState::Open,
-    };
-
-    let open_cells = [
-        open_cell, open_cell, open_cell, open_cell, open_cell, open_cell, open_cell, open_cell,
-        open_cell,
-    ];
-
-    let mut b = Board {
-        cells: [
-            open_cells, open_cells, open_cells, open_cells, open_cells, open_cells, open_cells,
-            open_cells, open_cells,
-        ],
-    };
-
-    let mut candidate_move = CandidateMove::Move(Direction::Down);
-
-    let mut player_loc = (4, 0);
-
-    let mut screen =
-        termion::cursor::HideCursor::from(AlternateScreen::from(stdout().into_raw_mode().unwrap()));
-
-    let stdin = stdin();
-    write!(screen, "{}", termion::clear::All,)?;
-    display(&mut screen, &b, &player_loc, &candidate_move)?;
-    screen.flush().unwrap();
-    for c in stdin.keys() {
-        match c.unwrap() {
-            Key::Char('q') => break,
-            Key::Char(' ') => {
-                if b.is_legal(&player_loc, &candidate_move) {
-                    match candidate_move {
-                        CandidateMove::Wall { x, y, horizontal } => {
-                            b.add_wall(x, y, horizontal);
-                        }
-                        CandidateMove::Move(d) => {
-                            if let Some(new_loc) = d.shift(&player_loc) {
-                                player_loc = new_loc;
-                            }
-                        }
-                    }
-                }
-            }
-            Key::Char('m') => {
-                candidate_move = match &mut candidate_move {
-                    CandidateMove::Wall {
-                        x: _,
-                        y: _,
-                        horizontal: _,
-                    } => CandidateMove::Move(Direction::Up),
-                    CandidateMove::Move(_) => CandidateMove::Wall {
-                        x: 4,
-                        y: 4,
-                        horizontal: true,
-                    },
-                }
-            }
-            Key::Char('/') | Key::Char('r') => match &mut candidate_move {
-                CandidateMove::Wall {
-                    horizontal,
-                    x: _,
-                    y: _,
-                } => *horizontal = !*horizontal,
-
-                CandidateMove::Move(_) => (),
-            },
-            Key::Left => match &mut candidate_move {
-                CandidateMove::Wall {
-                    horizontal: _,
-                    x,
-                    y: _,
-                } => *x = if *x > 0 { *x - 1 } else { 0 },
-                CandidateMove::Move(d) => *d = Direction::Left,
-            },
-            Key::Right => match &mut candidate_move {
-                CandidateMove::Wall {
-                    horizontal: _,
-                    x,
-                    y: _,
-                } => *x = if *x < 7 { *x + 1 } else { 7 },
-                CandidateMove::Move(d) => *d = Direction::Right,
-            },
-            Key::Up => match &mut candidate_move {
-                CandidateMove::Wall {
-                    horizontal: _,
-                    x: _,
-                    y,
-                } => *y = if *y > 0 { *y - 1 } else { 0 },
-                CandidateMove::Move(d) => *d = Direction::Up,
-            },
-            Key::Down => match &mut candidate_move {
-                CandidateMove::Wall {
-                    horizontal: _,
-                    x: _,
-                    y,
-                } => *y = if *y < 7 { *y + 1 } else { 7 },
-                CandidateMove::Move(d) => *d = Direction::Down,
-            },
-            _ => {}
-        }
-        write!(screen, "{}", termion::clear::All,)?;
-        display(&mut screen, &b, &player_loc, &candidate_move)?;
-        screen.flush().unwrap();
-    }
-
-    Ok(())
 }
