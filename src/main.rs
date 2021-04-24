@@ -22,6 +22,8 @@ pub struct Board {
     cells: [[RegularCell; 9]; 9],
     player1_loc: (usize, usize),
     player2_loc: (usize, usize),
+    player1_walls: usize,
+    player2_walls: usize,
 }
 
 impl Board {
@@ -44,6 +46,8 @@ impl Board {
             ],
             player1_loc: (4, 0),
             player2_loc: (4, 8),
+            player1_walls: 10,
+            player2_walls: 10,
         }
     }
 

@@ -5,7 +5,7 @@ use std::{
 };
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Board([u8; 31], Position, Position);
+pub struct Board([u8; 9 * 2 + 8], Position, Position, u8, u8);
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Position(NonZeroU8);
 
@@ -29,17 +29,25 @@ pub enum Direction {
 }
 
 impl Board {
+    pub fn bit_idx(pos: Position, kind: Kind) -> usize {
+        let (x, y) = pos.into();
+        let offset = (kind as usize) * 9 * 8;
+        offset
+            + match kind {
+                Kind::Right | Kind::Joint => y * 8 + x,
+                Kind::Bottom => y * 9 + x,
+            }
+    }
+
     pub fn get(&self, pos: Position, kind: Kind) -> State {
-        let position: usize = pos.idx().into();
-        let bit = position * 3 + (kind as usize);
+        let bit = Board::bit_idx(pos, kind);
         let byte = bit / 8;
         let byte_bit = bit % 8;
         let bit_state = self.0[byte] >> byte_bit & 1;
         unsafe { std::mem::transmute(bit_state) }
     }
     pub fn set(&mut self, pos: Position, kind: Kind, state: State) {
-        let position: usize = pos.idx().into();
-        let bit = position * 3 + (kind as usize);
+        let bit = Board::bit_idx(pos, kind);
         let byte = bit / 8;
         let byte_bit = bit % 8;
 
@@ -161,9 +169,11 @@ mod tests {
 impl From<super::Board> for Board {
     fn from(board: super::Board) -> Self {
         let mut res = Board(
-            [0; 31],
+            [0; 26],
             board.player1_loc.try_into().unwrap(),
             board.player2_loc.try_into().unwrap(),
+            board.player1_walls as u8,
+            board.player2_walls as u8,
         );
 
         for y in 0..9 {
@@ -171,9 +181,15 @@ impl From<super::Board> for Board {
                 let loc = (x, y);
                 let cell = board.cell(&loc);
                 let loc: Position = loc.try_into().unwrap();
-                res.set(loc, Kind::Right, cell.right.into());
-                res.set(loc, Kind::Bottom, cell.bottom.into());
-                res.set(loc, Kind::Joint, cell.joint.into());
+                if x != 8 {
+                    res.set(loc, Kind::Right, cell.right.into());
+                }
+                if y != 8 {
+                    res.set(loc, Kind::Bottom, cell.bottom.into());
+                }
+                if x != 8 && y != 8 {
+                    res.set(loc, Kind::Joint, cell.joint.into());
+                }
             }
         }
 
@@ -186,14 +202,22 @@ impl From<Board> for super::Board {
         let mut res = super::Board::empty();
         res.player1_loc = board.1.into();
         res.player2_loc = board.2.into();
+        res.player1_walls = board.3 as usize;
+        res.player2_walls = board.4 as usize;
 
         for y in 0..9 {
             for x in 0..9 {
                 let loc = (x, y);
                 let cell = res.cell_mut(&loc);
-                cell.right = board.get(loc.try_into().unwrap(), Kind::Right).into();
-                cell.bottom = board.get(loc.try_into().unwrap(), Kind::Bottom).into();
-                cell.joint = board.get(loc.try_into().unwrap(), Kind::Joint).into();
+                if y != 8 {
+                    cell.right = board.get(loc.try_into().unwrap(), Kind::Right).into();
+                }
+                if x != 8 {
+                    cell.bottom = board.get(loc.try_into().unwrap(), Kind::Bottom).into();
+                }
+                if x != 8 && y != 8 {
+                    cell.joint = board.get(loc.try_into().unwrap(), Kind::Joint).into();
+                }
             }
         }
 
