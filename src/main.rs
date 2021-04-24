@@ -2,7 +2,7 @@ use clap::{AppSettings, Clap};
 use display::DisplayError;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum WallState {
     Wall,
     Open,

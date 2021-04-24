@@ -97,7 +97,7 @@ impl Drop for Display {
 }
 
 impl Display {
-    pub fn new() -> Result<Self, DisplayError> {
+    pub fn new() -> Result<Self, DisplayError> {    
         execute!(stdout(), EnterAlternateScreen)?;
         enable_raw_mode()?;
         Ok(Self)

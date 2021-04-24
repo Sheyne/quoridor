@@ -1,6 +1,6 @@
-use std::num::NonZeroU8;
 use std::{
     convert::{TryFrom, TryInto},
+    num::NonZeroU8,
     usize,
 };
 
@@ -29,31 +29,32 @@ pub enum Direction {
 }
 
 impl Board {
-    pub fn bit_idx(pos: Position, kind: Kind) -> usize {
+    pub fn bit_idx(pos: (u8, u8), kind: Kind) -> u8 {
         let (x, y) = pos.into();
-        let offset = (kind as usize) * 9 * 8;
-        offset
-            + match kind {
-                Kind::Right | Kind::Joint => y * 8 + x,
-                Kind::Bottom => y * 9 + x,
-            }
+        let offset = (kind as u8) * 9 * 8;
+        // offset
+        //     + match kind {
+        //         Kind::Right | Kind::Joint => y * 8 + x,
+        //         Kind::Bottom => y * 9 + x,
+        //     }
+        offset + y * ((kind as u8) % 2 + 8) + x
     }
 
-    pub fn get(&self, pos: Position, kind: Kind) -> State {
+    pub fn get(&self, pos: (u8, u8), kind: Kind) -> State {
         let bit = Board::bit_idx(pos, kind);
         let byte = bit / 8;
         let byte_bit = bit % 8;
-        let bit_state = self.0[byte] >> byte_bit & 1;
+        let bit_state = self.0[byte as usize] >> byte_bit & 1;
         unsafe { std::mem::transmute(bit_state) }
     }
-    pub fn set(&mut self, pos: Position, kind: Kind, state: State) {
+    pub fn set(&mut self, pos: (u8, u8), kind: Kind, state: State) {
         let bit = Board::bit_idx(pos, kind);
         let byte = bit / 8;
         let byte_bit = bit % 8;
 
         match state {
-            State::Open => self.0[byte] &= 0xff ^ (1 << byte_bit),
-            State::Occupied => self.0[byte] |= 1 << byte_bit,
+            State::Open => self.0[byte as usize] &= 0xff ^ (1 << byte_bit),
+            State::Occupied => self.0[byte as usize] |= 1 << byte_bit,
         }
     }
 }
@@ -164,6 +165,20 @@ mod tests {
         let initial: Position = (8, 5).try_into().unwrap();
         assert!(initial.trans(Direction::Right).is_none());
     }
+
+    #[test]
+    fn test_copying_board() {
+        let mut board = crate::Board::empty();
+        board.add_wall(&(7, 7), true);
+        assert_eq!(board.cell(&(8, 7)).bottom, crate::WallState::Wall);
+
+        let packed : Board = board.into();
+        assert_eq!(packed.get((8, 7), Kind::Bottom), State::Occupied);
+
+        let returned : crate::Board = packed.into();
+        
+        assert_eq!(returned.cell(&(8, 7)).bottom, crate::WallState::Wall);
+    }
 }
 
 impl From<super::Board> for Board {
@@ -176,11 +191,10 @@ impl From<super::Board> for Board {
             board.player2_walls as u8,
         );
 
-        for y in 0..9 {
-            for x in 0..9 {
+        for y in 0..9u8 {
+            for x in 0..9u8 {
                 let loc = (x, y);
-                let cell = board.cell(&loc);
-                let loc: Position = loc.try_into().unwrap();
+                let cell = board.cell(&(x as usize, y as usize));
                 if x != 8 {
                     res.set(loc, Kind::Right, cell.right.into());
                 }
@@ -205,18 +219,18 @@ impl From<Board> for super::Board {
         res.player1_walls = board.3 as usize;
         res.player2_walls = board.4 as usize;
 
-        for y in 0..9 {
-            for x in 0..9 {
+        for y in 0..9u8 {
+            for x in 0..9u8 {
                 let loc = (x, y);
-                let cell = res.cell_mut(&loc);
-                if y != 8 {
-                    cell.right = board.get(loc.try_into().unwrap(), Kind::Right).into();
-                }
+                let cell = res.cell_mut(&(x as usize, y as usize));
                 if x != 8 {
-                    cell.bottom = board.get(loc.try_into().unwrap(), Kind::Bottom).into();
+                    cell.right = board.get(loc, Kind::Right).into();
+                }
+                if y != 8 {
+                    cell.bottom = board.get(loc, Kind::Bottom).into();
                 }
                 if x != 8 && y != 8 {
-                    cell.joint = board.get(loc.try_into().unwrap(), Kind::Joint).into();
+                    cell.joint = board.get(loc, Kind::Joint).into();
                 }
             }
         }
