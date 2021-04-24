@@ -6,3 +6,10 @@ rust:
   - stable
 script:
   - cargo build --release
+
+deploy:
+  provider: releases
+  file_glob: true
+  file: target/release/quoridor*
+  api_key: $GITHUB_OAUTH_TOKEN
+  skip_cleanup: true
