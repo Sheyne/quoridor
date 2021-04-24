@@ -9,7 +9,7 @@
             "type": "lldb",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/quoridor",
-            "args": [],
+            "args": ["--player", "1", "serve", "--port", "3334"],
         }
     ]
 }

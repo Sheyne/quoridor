@@ -180,9 +180,9 @@ impl From<tcp::GameError> for Error {
     }
 }
 
+mod bitpacked;
 mod display;
 mod tcp;
-
 #[derive(Clap)]
 #[clap(version = "1.0", author = "Sheyne Anderson")]
 #[clap(setting = AppSettings::ColoredHelp)]
@@ -247,6 +247,9 @@ fn main() -> Result<(), Error> {
             if !board.is_legal(&iam, &candidate) {
                 todo!();
             }
+
+            let packed_board: bitpacked::Board = board.clone().into();
+            board = packed_board.into();
 
             apply_move(&mut board, &candidate, &iam);
 

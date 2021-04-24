@@ -29,7 +29,7 @@ impl Game {
         for stream in listener.incoming() {
             match stream {
                 Ok(stream) => return Ok(Game::from_tcp(stream).map_err(GameError::IoError)?),
-                _ => todo!(),
+                e => todo!("Error connecting to client: {:?}", e),
             }
         }
         todo!()
@@ -38,7 +38,7 @@ impl Game {
     pub fn connect<A: ToSocketAddrs>(addr: A) -> Result<Self, GameError> {
         match TcpStream::connect(addr) {
             Ok(stream) => Ok(Game::from_tcp(stream).map_err(GameError::IoError)?),
-            _ => todo!(),
+            e => todo!("Error connecting to server: {:?}", e),
         }
     }
 
