@@ -7,7 +7,13 @@ use std::{
 use crate::Player;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Board([u8; 9 * 2 + 8], Position, Position, u8, u8);
+pub struct Board {
+    cells: [u8; 9 * 2 + 8],
+    player1_pos: Position,
+    player2_pos: Position,
+    player1_walls: u8,
+    player2_walls: u8,
+}
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub struct Position(NonZeroU8);
 
@@ -60,8 +66,8 @@ impl Board {
 
     pub fn player_location(&self, player: super::Player) -> (usize, usize) {
         match player {
-            super::Player::Player1 => self.1,
-            super::Player::Player2 => self.2,
+            super::Player::Player1 => self.player1_pos,
+            super::Player::Player2 => self.player2_pos,
         }
         .into()
     }
@@ -105,7 +111,7 @@ impl Board {
         let bit = Board::bit_idx(pos, kind);
         let byte = bit / 8;
         let byte_bit = bit % 8;
-        let bit_state = self.0[byte as usize] >> byte_bit & 1;
+        let bit_state = self.cells[byte as usize] >> byte_bit & 1;
         unsafe { std::mem::transmute(bit_state) }
     }
     pub fn set(&mut self, pos: (u8, u8), kind: Kind, state: State) {
@@ -114,8 +120,8 @@ impl Board {
         let byte_bit = bit % 8;
 
         match state {
-            State::Open => self.0[byte as usize] &= 0xff ^ (1 << byte_bit),
-            State::Occupied => self.0[byte as usize] |= 1 << byte_bit,
+            State::Open => self.cells[byte as usize] &= 0xff ^ (1 << byte_bit),
+            State::Occupied => self.cells[byte as usize] |= 1 << byte_bit,
         }
     }
 }
@@ -257,13 +263,13 @@ mod tests {
 
 impl From<super::Board> for Board {
     fn from(board: super::Board) -> Self {
-        let mut res = Board(
-            [0; 26],
-            board.player1_loc.try_into().unwrap(),
-            board.player2_loc.try_into().unwrap(),
-            board.player1_walls as u8,
-            board.player2_walls as u8,
-        );
+        let mut res = Board {
+            cells: [0; 26],
+            player1_pos: board.player1_loc.try_into().unwrap(),
+            player2_pos: board.player2_loc.try_into().unwrap(),
+            player1_walls: board.player1_walls as u8,
+            player2_walls: board.player2_walls as u8,
+        };
 
         for y in 0..9u8 {
             for x in 0..9u8 {
@@ -288,10 +294,10 @@ impl From<super::Board> for Board {
 impl From<Board> for super::Board {
     fn from(board: Board) -> Self {
         let mut res = super::Board::empty();
-        res.player1_loc = board.1.into();
-        res.player2_loc = board.2.into();
-        res.player1_walls = board.3 as usize;
-        res.player2_walls = board.4 as usize;
+        res.player1_loc = board.player1_pos.into();
+        res.player2_loc = board.player2_pos.into();
+        res.player1_walls = board.player1_walls as usize;
+        res.player2_walls = board.player2_walls as usize;
 
         for y in 0..9u8 {
             for x in 0..9u8 {
