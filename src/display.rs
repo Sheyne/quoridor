@@ -97,7 +97,7 @@ impl Drop for Display {
 }
 
 impl Display {
-    pub fn new() -> Result<Self, DisplayError> {    
+    pub fn new() -> Result<Self, DisplayError> {
         execute!(stdout(), EnterAlternateScreen)?;
         enable_raw_mode()?;
         Ok(Self)
@@ -273,7 +273,23 @@ fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(
         }
     }
 
-    queue!(stdout(), crossterm::cursor::MoveTo(0, 17),)?;
+    let packed_board: crate::bitpacked::Board = board.clone().into();
+
+    queue!(
+        stdout(),
+        SetForegroundColor(crossterm::style::Color::White),
+        crossterm::cursor::MoveTo(0, 18),
+        Print(format!(
+            "Player 1 distance: {:?}",
+            packed_board.distance_to_goal(crate::Player::Player1)
+        )),
+        crossterm::cursor::MoveTo(0, 19),
+        Print(format!(
+            "Player 2 distance: {:?}",
+            packed_board.distance_to_goal(crate::Player::Player2)
+        )),
+    )?;
+
     stdout().flush()?;
 
     Ok(())

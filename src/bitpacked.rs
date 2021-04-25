@@ -4,6 +4,8 @@ use std::{
     usize,
 };
 
+use crate::Player;
+
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Board([u8; 9 * 2 + 8], Position, Position, u8, u8);
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -29,6 +31,65 @@ pub enum Direction {
 }
 
 impl Board {
+    pub fn is_passible(&self, (x, y): (u8, u8), direction: Direction) -> bool {
+        match direction {
+            Direction::Right => x < 8 && State::Open == self.get((x, y), Kind::Right),
+            Direction::Down => y < 8 && State::Open == self.get((x, y), Kind::Bottom),
+            Direction::Up => y > 0 && State::Open == self.get((x, y - 1), Kind::Bottom),
+            Direction::Left => x > 0 && State::Open == self.get((x - 1, y), Kind::Right),
+        }
+    }
+
+    pub fn neighbors<'a>(&'a self, (x, y): (u8, u8)) -> impl Iterator<Item = (u8, u8)> + 'a {
+        [
+            Direction::Up,
+            Direction::Down,
+            Direction::Left,
+            Direction::Right,
+        ]
+        .iter()
+        .map(|x| *x)
+        .filter(move |d| self.is_passible((x, y), *d))
+        .map(move |d| match d {
+            Direction::Right => (x + 1, y),
+            Direction::Left => (x - 1, y),
+            Direction::Up => (x, y - 1),
+            Direction::Down => (x, y + 1),
+        })
+    }
+
+    pub fn player_location(&self, player: super::Player) -> (usize, usize) {
+        match player {
+            super::Player::Player1 => self.1,
+            super::Player::Player2 => self.2,
+        }
+        .into()
+    }
+
+    pub fn distance_to_goal(&self, player: super::Player) -> Option<u8> {
+        let (x, y) = self.player_location(player);
+        let initial = (x as u8, y as u8);
+        fn p1_heuristic((_, y): &(u8, u8)) -> u8 {
+            8 - *y
+        }
+        fn p2_heuristic((_, y): &(u8, u8)) -> u8 {
+            *y
+        }
+
+        let heuristic = match player {
+            Player::Player1 => p1_heuristic,
+            Player::Player2 => p2_heuristic,
+        };
+
+        pathfinding::prelude::astar(
+            &initial,
+            |p| self.neighbors(*p).map(|p| (p, 1)),
+            heuristic,
+            |p| heuristic(p) == 0,
+        )
+        .map(|(p, _)| p.len() as u8)
+    }
+
     pub fn bit_idx(pos: (u8, u8), kind: Kind) -> u8 {
         let (x, y) = pos.into();
         let offset = (kind as u8) * 9 * 8;
@@ -172,12 +233,25 @@ mod tests {
         board.add_wall(&(7, 7), true);
         assert_eq!(board.cell(&(8, 7)).bottom, crate::WallState::Wall);
 
-        let packed : Board = board.into();
+        let packed: Board = board.into();
         assert_eq!(packed.get((8, 7), Kind::Bottom), State::Occupied);
 
-        let returned : crate::Board = packed.into();
-        
+        let returned: crate::Board = packed.into();
+
         assert_eq!(returned.cell(&(8, 7)).bottom, crate::WallState::Wall);
+    }
+
+    #[test]
+    fn test_calculating_distances() {
+        let mut board = crate::Board::empty();
+        let packed: Board = board.clone().into();
+        assert_eq!(Some(9), packed.distance_to_goal(Player::Player1));
+        assert_eq!(Some(9), packed.distance_to_goal(Player::Player2));
+
+        board.add_wall(&(3, 7), true);
+        let packed: Board = board.clone().into();
+        assert_eq!(Some(10), packed.distance_to_goal(Player::Player2));
+        assert_eq!(Some(10), packed.distance_to_goal(Player::Player1));
     }
 }
 

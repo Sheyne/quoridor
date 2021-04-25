@@ -252,9 +252,6 @@ fn main() -> Result<(), Error> {
                 todo!();
             }
 
-            let packed_board: bitpacked::Board = board.clone().into();
-            board = packed_board.into();
-
             apply_move(&mut board, &candidate, &iam);
 
             tcp.send(&candidate)?;
