@@ -34,6 +34,13 @@ impl Board for BoardV1 {
         }
     }
 
+    fn available_walls(&self, player: Player) -> u8 {
+        match player {
+            Player::Player1 => self.player1_walls,
+            Player::Player2 => self.player2_walls,
+        }
+    }
+
     fn is_passible(&self, loc: (u8, u8), direction: Direction) -> bool {
         direction.shift(loc).is_some()
             && match direction {

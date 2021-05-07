@@ -36,6 +36,13 @@ impl Board for BoardV2 {
         }
     }
 
+    fn available_walls(&self, player: Player) -> u8 {
+        match player {
+            Player::Player1 => self.player1_walls,
+            Player::Player2 => self.player2_walls,
+        }
+    }
+
     fn add_wall(&mut self, player: Player, location: (u8, u8), orientation: crate::Orientation) {
         let bitset = match orientation {
             crate::Orientation::Horizontal => &mut self.horizontal,

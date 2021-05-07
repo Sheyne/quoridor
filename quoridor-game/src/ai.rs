@@ -52,7 +52,7 @@ fn all_moves() -> impl Iterator<Item = Move> {
     .iter()
     .map(|x| Move::MoveToken(*x));
 
-    adds_walls.chain(shifts)
+    shifts.chain(adds_walls)
 }
 
 fn best_move<B: Board + Clone + Hash + Eq>(board: B, player: Player) -> Move {

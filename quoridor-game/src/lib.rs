@@ -32,7 +32,8 @@ pub trait Board {
     fn add_wall(&mut self, player: Player, location: (u8, u8), orientation: Orientation);
     fn move_token(&mut self, player: Player, direction: Direction);
     fn is_legal(&self, player: Player, candidate_move: &Move) -> bool;
-
+    fn get_wall_state(&self, location: (u8, u8)) -> Option<Orientation>;
+    fn available_walls(&self, player: Player) -> u8;
     fn apply_move(&mut self, candidate: &Move, player: Player) {
         match candidate {
             Move::AddWall {
