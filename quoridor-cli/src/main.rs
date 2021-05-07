@@ -1,12 +1,11 @@
-use ai::AiPlayer;
-use bitpacked::BoardV2;
+use std::hash::Hash;
+
 use clap::{AppSettings, Clap};
 use display::DisplayError;
-use game::*;
+use quoridor_game::ai::AiPlayer;
+use quoridor_game::bitpacked::BoardV2;
+use quoridor_game::*;
 use tcp::GameError;
-
-mod ai;
-mod game;
 
 #[derive(Debug)]
 pub enum Error {
@@ -39,7 +38,16 @@ impl RemotePlayer for tcp::Game {
     }
 }
 
-mod bitpacked;
+impl<B: Board + Clone + Hash + Eq> RemotePlayer for quoridor_game::ai::AiPlayer<B> {
+    fn send(&mut self, m: &Move) -> Result<(), Error> {
+        quoridor_game::ai::AiPlayer::send(self, m);
+        Ok(())
+    }
+    fn receive(&mut self) -> Result<Move, Error> {
+        Ok(quoridor_game::ai::AiPlayer::receive(self))
+    }
+}
+
 mod display;
 mod tcp;
 #[derive(Clap)]

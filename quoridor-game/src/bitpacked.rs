@@ -4,10 +4,7 @@ use std::{
     num::NonZeroU8,
 };
 
-use crate::{
-    game::{Board, Direction, Move, Orientation},
-    Player,
-};
+use crate::{Board, Direction, Move, Orientation, Player};
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct BoardV2 {
@@ -39,15 +36,10 @@ impl Board for BoardV2 {
         }
     }
 
-    fn add_wall(
-        &mut self,
-        player: Player,
-        location: (u8, u8),
-        orientation: crate::game::Orientation,
-    ) {
+    fn add_wall(&mut self, player: Player, location: (u8, u8), orientation: crate::Orientation) {
         let bitset = match orientation {
-            crate::game::Orientation::Horizontal => &mut self.horizontal,
-            crate::game::Orientation::Vertical => &mut self.vertical,
+            crate::Orientation::Horizontal => &mut self.horizontal,
+            crate::Orientation::Vertical => &mut self.vertical,
         };
 
         if let Some(mask) = BoardV2::bit_mask(location) {
@@ -59,7 +51,7 @@ impl Board for BoardV2 {
         }
     }
 
-    fn move_token(&mut self, player: Player, direction: crate::game::Direction) {
+    fn move_token(&mut self, player: Player, direction: crate::Direction) {
         if let Some(location) = direction.shift(self.player_location(player)) {
             self.set_player_location(player, location);
         }
@@ -132,7 +124,7 @@ impl Board for BoardV2 {
         .into()
     }
 
-    fn is_passible(&self, (x, y): (u8, u8), direction: crate::game::Direction) -> bool {
+    fn is_passible(&self, (x, y): (u8, u8), direction: crate::Direction) -> bool {
         match direction {
             Direction::Right => x < 8 && self.is_passible_right((x, y)),
             Direction::Down => y < 8 && self.is_passible_down((x, y)),
@@ -254,7 +246,7 @@ impl Position {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::game::*;
+    use crate::*;
 
     #[test]
     fn test_position_conversions() {
@@ -309,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_v_walls_block_things_1() {
-        let mut board = crate::game::BoardV1::empty();
+        let mut board = crate::v1::BoardV1::empty();
         board.add_wall(Player::Player1, (1, 2), Orientation::Vertical);
         assert!(board.is_passible((1, 1), Direction::Right));
         assert!(!board.is_passible((1, 2), Direction::Right));
@@ -359,9 +351,9 @@ mod tests {
     }
 }
 
-impl From<BoardV2> for crate::game::BoardV1 {
+impl From<BoardV2> for crate::v1::BoardV1 {
     fn from(board: BoardV2) -> Self {
-        let mut res = crate::game::BoardV1::empty();
+        let mut res = crate::v1::BoardV1::empty();
         res.player1_loc = board.player1_pos.into();
         res.player2_loc = board.player2_pos.into();
         res.player1_walls = board.player1_walls;
@@ -373,16 +365,16 @@ impl From<BoardV2> for crate::game::BoardV1 {
                 let cell = res.cell_mut(&loc);
                 if x != 8 {
                     cell.right = if board.is_passible_right(loc) {
-                        crate::game::WallState::Open
+                        crate::WallState::Open
                     } else {
-                        crate::game::WallState::Wall
+                        crate::WallState::Wall
                     };
                 }
                 if y != 8 {
                     cell.bottom = if board.is_passible_down(loc) {
-                        crate::game::WallState::Open
+                        crate::WallState::Open
                     } else {
-                        crate::game::WallState::Wall
+                        crate::WallState::Wall
                     };
                 }
                 if x != 8 && y != 8 {
@@ -390,9 +382,9 @@ impl From<BoardV2> for crate::game::BoardV1 {
                         .map(|m| (m & (board.horizontal | board.vertical)) == 0)
                         .unwrap_or(false)
                     {
-                        crate::game::WallState::Open
+                        crate::WallState::Open
                     } else {
-                        crate::game::WallState::Wall
+                        crate::WallState::Wall
                     };
                 }
             }

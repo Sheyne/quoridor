@@ -1,5 +1,4 @@
 use super::*;
-use crate::game::BoardV1;
 use crossterm::{
     event::{read, Event, KeyCode},
     execute, queue,
@@ -10,6 +9,7 @@ use crossterm::{
     },
     ErrorKind,
 };
+use quoridor_game::v1::BoardV1;
 use std::io::{stdout, Write};
 
 #[derive(Clone, Copy, PartialEq, Eq)]

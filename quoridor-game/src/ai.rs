@@ -1,4 +1,4 @@
-use crate::game::{Board, Direction, Move, Orientation, Player};
+use crate::{Board, Direction, Move, Orientation, Player};
 // use fxhash::FxHashMap;
 use std::hash::Hash;
 
@@ -16,18 +16,17 @@ impl<B: Board + Clone + Hash + Eq> AiPlayer<B> {
     }
 }
 
-impl<B: Board + Clone + Hash + Eq> super::RemotePlayer for AiPlayer<B> {
-    fn send(&mut self, m: &Move) -> Result<(), crate::Error> {
+impl<B: Board + Clone + Hash + Eq> AiPlayer<B> {
+    pub fn send(&mut self, m: &Move) {
         self.board.apply_move(m, self.current_player);
         self.current_player = self.current_player.other();
-        Ok(())
     }
 
-    fn receive(&mut self) -> Result<Move, crate::Error> {
+    pub fn receive(&mut self) -> Move {
         let m = best_move(self.board.clone(), self.current_player);
         self.board.apply_move(&m, self.current_player);
         self.current_player = self.current_player.other();
-        Ok(m)
+        m
     }
 }
 
