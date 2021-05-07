@@ -10,7 +10,7 @@ pub struct Game {
 
 #[pymethods]
 impl Game {
-    #[staticmethod]
+    #[new]
     pub fn new() -> Game {
         Game {
             board: BoardV2::empty(),
