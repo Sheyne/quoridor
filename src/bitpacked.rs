@@ -1,14 +1,17 @@
 use std::{
     convert::{TryFrom, TryInto},
     num::NonZeroU8,
-    usize,
 };
 
-use crate::Player;
+use crate::{
+    game::{Board, Direction, Move, Orientation},
+    Player,
+};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct Board {
-    cells: [u8; 9 * 2 + 8],
+pub struct BoardV2 {
+    horizontal: u64,
+    vertical: u64,
     player1_pos: Position,
     player2_pos: Position,
     player1_walls: u8,
@@ -22,49 +25,88 @@ pub enum State {
     Open = 0,
     Occupied = 1,
 }
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum Kind {
-    Right = 0,
-    Bottom = 1,
-    Joint = 2,
-}
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
-}
 
-impl Board {
-    pub fn is_passible(&self, (x, y): (u8, u8), direction: Direction) -> bool {
-        match direction {
-            Direction::Right => x < 8 && State::Open == self.get((x, y), Kind::Right),
-            Direction::Down => y < 8 && State::Open == self.get((x, y), Kind::Bottom),
-            Direction::Up => y > 0 && State::Open == self.get((x, y - 1), Kind::Bottom),
-            Direction::Left => x > 0 && State::Open == self.get((x - 1, y), Kind::Right),
+impl Board for BoardV2 {
+    fn empty() -> Self {
+        Self {
+            horizontal: 0,
+            vertical: 0,
+            player1_pos: (4, 0).try_into().unwrap(),
+            player2_pos: (4, 8).try_into().unwrap(),
+            player1_walls: 10,
+            player2_walls: 10,
         }
     }
 
-    pub fn neighbors<'a>(&'a self, (x, y): (u8, u8)) -> impl Iterator<Item = (u8, u8)> + 'a {
-        [
-            Direction::Up,
-            Direction::Down,
-            Direction::Left,
-            Direction::Right,
-        ]
-        .iter()
-        .map(|x| *x)
-        .filter(move |d| self.is_passible((x, y), *d))
-        .map(move |d| match d {
-            Direction::Right => (x + 1, y),
-            Direction::Left => (x - 1, y),
-            Direction::Up => (x, y - 1),
-            Direction::Down => (x, y + 1),
-        })
+    fn add_wall(&mut self, location: (u8, u8), orientation: crate::game::Orientation) {
+        let bitset = match orientation {
+            crate::game::Orientation::Horizontal => &mut self.horizontal,
+            crate::game::Orientation::Vertical => &mut self.vertical,
+        };
+
+        if let Some(mask) = BoardV2::bit_mask(location) {
+            *bitset |= mask;
+        }
     }
 
-    pub fn player_location(&self, player: super::Player) -> (usize, usize) {
+    fn move_token(&mut self, player: Player, direction: crate::game::Direction) {
+        if let Some(location) = direction.shift(self.player_location(player)) {
+            self.set_player_location(player, location);
+        }
+    }
+
+    fn is_legal(&self, player: Player, candidate_move: &Move) -> bool {
+        match candidate_move {
+            Move::AddWall {
+                location,
+                orientation,
+            } => {
+                fn directions_to_mask(poses: impl Iterator<Item = Option<(u8, u8)>>) -> u64 {
+                    poses
+                        .filter_map(|x| x)
+                        .filter_map(|x| BoardV2::bit_mask(x))
+                        .fold(0, |acc, x| acc | x)
+                }
+
+                let h_mask = directions_to_mask(
+                    [
+                        Direction::Left.shift(*location),
+                        Some(*location),
+                        Direction::Right.shift(*location),
+                    ]
+                    .iter()
+                    .map(|x| *x),
+                );
+
+                let v_mask = directions_to_mask(
+                    [
+                        Direction::Up.shift(*location),
+                        Some(*location),
+                        Direction::Down.shift(*location),
+                    ]
+                    .iter()
+                    .map(|x| *x),
+                );
+
+                let unfilled = match orientation {
+                    Orientation::Vertical => (self.vertical & v_mask) == 0,
+                    Orientation::Horizontal => (self.horizontal & h_mask) == 0,
+                };
+
+                let mut hypo = self.clone();
+                hypo.add_wall(*location, *orientation);
+
+                unfilled
+                    && hypo.distance_to_goal(Player::Player1).is_some()
+                    && hypo.distance_to_goal(Player::Player2).is_some()
+            }
+            Move::MoveToken(direction) => {
+                self.is_passible(self.player_location(player), *direction)
+            }
+        }
+    }
+
+    fn player_location(&self, player: Player) -> (u8, u8) {
         match player {
             super::Player::Player1 => self.player1_pos,
             super::Player::Player2 => self.player2_pos,
@@ -72,71 +114,73 @@ impl Board {
         .into()
     }
 
-    pub fn distance_to_goal(&self, player: super::Player) -> Option<u8> {
-        let (x, y) = self.player_location(player);
-        let initial = (x as u8, y as u8);
-        fn p1_heuristic((_, y): &(u8, u8)) -> u8 {
-            8 - *y
-        }
-        fn p2_heuristic((_, y): &(u8, u8)) -> u8 {
-            *y
-        }
-
-        let heuristic = match player {
-            Player::Player1 => p1_heuristic,
-            Player::Player2 => p2_heuristic,
-        };
-
-        pathfinding::prelude::astar(
-            &initial,
-            |p| self.neighbors(*p).map(|p| (p, 1)),
-            heuristic,
-            |p| heuristic(p) == 0,
-        )
-        .map(|(p, _)| p.len() as u8)
-    }
-
-    pub fn bit_idx(pos: (u8, u8), kind: Kind) -> u8 {
-        let (x, y) = pos.into();
-        let offset = (kind as u8) * 9 * 8;
-        // offset
-        //     + match kind {
-        //         Kind::Right | Kind::Joint => y * 8 + x,
-        //         Kind::Bottom => y * 9 + x,
-        //     }
-        offset + y * ((kind as u8) % 2 + 8) + x
-    }
-
-    pub fn get(&self, pos: (u8, u8), kind: Kind) -> State {
-        let bit = Board::bit_idx(pos, kind);
-        let byte = bit / 8;
-        let byte_bit = bit % 8;
-        let bit_state = self.cells[byte as usize] >> byte_bit & 1;
-        unsafe { std::mem::transmute(bit_state) }
-    }
-    pub fn set(&mut self, pos: (u8, u8), kind: Kind, state: State) {
-        let bit = Board::bit_idx(pos, kind);
-        let byte = bit / 8;
-        let byte_bit = bit % 8;
-
-        match state {
-            State::Open => self.cells[byte as usize] &= 0xff ^ (1 << byte_bit),
-            State::Occupied => self.cells[byte as usize] |= 1 << byte_bit,
+    fn is_passible(&self, (x, y): (u8, u8), direction: crate::game::Direction) -> bool {
+        match direction {
+            Direction::Right => x < 8 && self.is_passible_right((x, y)),
+            Direction::Down => y < 8 && self.is_passible_down((x, y)),
+            Direction::Up => y > 0 && self.is_passible_down((x, y - 1)),
+            Direction::Left => x > 0 && self.is_passible_right((x - 1, y)),
         }
     }
 }
 
-impl From<Position> for (usize, usize) {
+impl BoardV2 {
+    fn bit_mask(p: (u8, u8)) -> Option<u64> {
+        BoardV2::bit_idx(p).map(|b| 1 << b)
+    }
+
+    fn bit_idx((x, y): (u8, u8)) -> Option<u8> {
+        if x < 8 && y < 8 {
+            Some(x * 8 + y)
+        } else {
+            None
+        }
+    }
+
+    fn set_player_location(&mut self, player: Player, pos: (u8, u8)) {
+        *match player {
+            super::Player::Player1 => &mut self.player1_pos,
+            super::Player::Player2 => &mut self.player2_pos,
+        } = pos.try_into().unwrap();
+    }
+
+    fn is_passible_down(&self, pos: (u8, u8)) -> bool {
+        let neighbor = Direction::Left
+            .shift(pos)
+            .and_then(|np| BoardV2::bit_mask(np).map(|mask| mask & self.horizontal == 0))
+            .unwrap_or(true);
+
+        let this = BoardV2::bit_mask(pos)
+            .map(|mask| mask & self.horizontal == 0)
+            .unwrap_or(true);
+
+        neighbor && this
+    }
+    fn is_passible_right(&self, pos: (u8, u8)) -> bool {
+        let neighbor = Direction::Up
+            .shift(pos)
+            .and_then(|np| BoardV2::bit_mask(np).map(|mask| mask & self.vertical == 0))
+            .unwrap_or(true);
+
+        let this = BoardV2::bit_mask(pos)
+            .map(|mask| mask & self.vertical == 0)
+            .unwrap_or(true);
+
+        neighbor && this
+    }
+}
+
+impl From<Position> for (u8, u8) {
     fn from(p: Position) -> Self {
         let Position(p) = p;
         let p = p.get() - 1;
-        ((p % 9) as usize, (p / 9) as usize)
+        ((p % 9) as u8, (p / 9) as u8)
     }
 }
-impl TryFrom<(usize, usize)> for Position {
+impl TryFrom<(u8, u8)> for Position {
     type Error = ();
 
-    fn try_from((x, y): (usize, usize)) -> Result<Self, ()> {
+    fn try_from((x, y): (u8, u8)) -> Result<Self, ()> {
         let position = (y * 9 + x + 1).try_into().map_err(|_| ())?;
         NonZeroU8::new(position).map(Self).ok_or(())
     }
@@ -192,10 +236,11 @@ impl Position {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::game::*;
 
     #[test]
     fn test_position_conversions() {
-        fn check(a: usize, b: usize) {
+        fn check(a: u8, b: u8) {
             let p: Position = (a, b).try_into().unwrap();
             let (x, y) = p.into();
             assert_eq!((x, y), (a, b));
@@ -204,6 +249,55 @@ mod tests {
         check(0, 0);
         check(5, 8);
         check(8, 8);
+    }
+
+    #[test]
+    fn test_h_walls_edge() {
+        let mut board = BoardV2::empty();
+        board.add_wall((7, 2), Orientation::Horizontal);
+        assert!(!board.is_passible_down((7, 2)));
+        assert!(!board.is_passible_down((8, 2)));
+    }
+    #[test]
+    fn test_h_walls_block_things() {
+        let mut board = BoardV2::empty();
+        board.add_wall((1, 2), Orientation::Horizontal);
+        assert!(board.is_passible_down((0, 2)));
+        assert!(!board.is_passible_down((1, 2)));
+        assert!(!board.is_passible_down((2, 2)));
+        assert!(board.is_passible_down((3, 2)));
+        assert!(board.is_passible_down((1, 3)));
+    }
+
+    #[test]
+    fn test_v_walls_edge() {
+        let mut board = BoardV2::empty();
+        board.add_wall((2, 7), Orientation::Vertical);
+        assert!(!board.is_passible_right((2, 7)));
+        assert!(!board.is_passible_right((2, 8)));
+    }
+
+    #[test]
+    fn test_v_walls_block_things() {
+        let mut board = BoardV2::empty();
+        board.add_wall((1, 2), Orientation::Vertical);
+        assert!(board.is_passible_right((1, 1)));
+        assert!(!board.is_passible_right((1, 2)));
+        assert!(!board.is_passible_right((1, 3)));
+        assert!(board.is_passible_right((1, 4)));
+        assert!(board.is_passible_right((2, 2)));
+        assert!(board.is_passible_right((0, 0)));
+    }
+
+    #[test]
+    fn test_v_walls_block_things_1() {
+        let mut board = crate::game::BoardV1::empty();
+        board.add_wall((1, 2), Orientation::Vertical);
+        assert!(board.is_passible((1, 1), Direction::Right));
+        assert!(!board.is_passible((1, 2), Direction::Right));
+        assert!(!board.is_passible((1, 3), Direction::Right));
+        assert!(board.is_passible((1, 4), Direction::Right));
+        assert!(board.is_passible((2, 2), Direction::Right));
     }
 
     #[test]
@@ -234,83 +328,54 @@ mod tests {
     }
 
     #[test]
-    fn test_copying_board() {
-        let mut board = crate::Board::empty();
-        board.add_wall(&(7, 7), true);
-        assert_eq!(board.cell(&(8, 7)).bottom, crate::WallState::Wall);
-
-        let packed: Board = board.into();
-        assert_eq!(packed.get((8, 7), Kind::Bottom), State::Occupied);
-
-        let returned: crate::Board = packed.into();
-
-        assert_eq!(returned.cell(&(8, 7)).bottom, crate::WallState::Wall);
-    }
-
-    #[test]
     fn test_calculating_distances() {
-        let mut board = crate::Board::empty();
-        let packed: Board = board.clone().into();
+        let mut board = BoardV2::empty();
+        let packed: BoardV2 = board.clone().into();
         assert_eq!(Some(9), packed.distance_to_goal(Player::Player1));
         assert_eq!(Some(9), packed.distance_to_goal(Player::Player2));
 
-        board.add_wall(&(3, 7), true);
-        let packed: Board = board.clone().into();
+        board.add_wall((3, 7), Orientation::Horizontal);
+        let packed: BoardV2 = board.clone().into();
         assert_eq!(Some(10), packed.distance_to_goal(Player::Player2));
         assert_eq!(Some(10), packed.distance_to_goal(Player::Player1));
     }
 }
 
-impl From<super::Board> for Board {
-    fn from(board: super::Board) -> Self {
-        let mut res = Board {
-            cells: [0; 26],
-            player1_pos: board.player1_loc.try_into().unwrap(),
-            player2_pos: board.player2_loc.try_into().unwrap(),
-            player1_walls: board.player1_walls as u8,
-            player2_walls: board.player2_walls as u8,
-        };
-
-        for y in 0..9u8 {
-            for x in 0..9u8 {
-                let loc = (x, y);
-                let cell = board.cell(&(x as usize, y as usize));
-                if x != 8 {
-                    res.set(loc, Kind::Right, cell.right.into());
-                }
-                if y != 8 {
-                    res.set(loc, Kind::Bottom, cell.bottom.into());
-                }
-                if x != 8 && y != 8 {
-                    res.set(loc, Kind::Joint, cell.joint.into());
-                }
-            }
-        }
-
-        res
-    }
-}
-
-impl From<Board> for super::Board {
-    fn from(board: Board) -> Self {
-        let mut res = super::Board::empty();
+impl From<BoardV2> for crate::game::BoardV1 {
+    fn from(board: BoardV2) -> Self {
+        let mut res = crate::game::BoardV1::empty();
         res.player1_loc = board.player1_pos.into();
         res.player2_loc = board.player2_pos.into();
-        res.player1_walls = board.player1_walls as usize;
-        res.player2_walls = board.player2_walls as usize;
+        res.player1_walls = board.player1_walls;
+        res.player2_walls = board.player2_walls;
 
         for y in 0..9u8 {
             for x in 0..9u8 {
                 let loc = (x, y);
-                let cell = res.cell_mut(&(x as usize, y as usize));
+                let cell = res.cell_mut(&loc);
                 if x != 8 {
-                    cell.right = board.get(loc, Kind::Right).into();
+                    cell.right = if board.is_passible_right(loc) {
+                        crate::game::WallState::Open
+                    } else {
+                        crate::game::WallState::Wall
+                    };
                 }
                 if y != 8 {
-                    cell.bottom = board.get(loc, Kind::Bottom).into();
+                    cell.bottom = if board.is_passible_down(loc) {
+                        crate::game::WallState::Open
+                    } else {
+                        crate::game::WallState::Wall
+                    };
                 }
                 if x != 8 && y != 8 {
-                    cell.joint = board.get(loc, Kind::Joint).into();
+                    cell.joint = if BoardV2::bit_mask((x, y))
+                        .map(|m| (m & (board.horizontal | board.vertical)) == 0)
+                        .unwrap_or(false)
+                    {
+                        crate::game::WallState::Open
+                    } else {
+                        crate::game::WallState::Wall
+                    };
                 }
             }
         }

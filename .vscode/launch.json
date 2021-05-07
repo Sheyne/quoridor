@@ -8,6 +8,7 @@
             "name": "Launch",
             "type": "lldb",
             "request": "launch",
+            "cwd": "${workspaceRoot}",
             "program": "${workspaceRoot}/target/debug/quoridor",
             "args": ["--player", "1", "serve", "--port", "3334"],
         }

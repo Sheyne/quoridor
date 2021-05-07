@@ -1,4 +1,5 @@
 use super::*;
+use crate::game::BoardV1;
 use crossterm::{
     event::{read, Event, KeyCode},
     execute, queue,
@@ -50,7 +51,7 @@ impl From<ErrorKind> for DisplayError {
 
 type DisplayCell = Cell<DisplayWallState>;
 
-fn display_cell(cell: &DisplayCell, (x, y): (usize, usize)) -> Result<(), DisplayError> {
+fn display_cell(cell: &DisplayCell, (x, y): (u8, u8)) -> Result<(), DisplayError> {
     if x != 8 {
         queue!(
             stdout(),
@@ -105,7 +106,7 @@ impl Display {
 
     pub fn get_move(
         &mut self,
-        board: &Board,
+        board: &BoardV1,
         player: &Player,
         candidate_move: &mut Move,
     ) -> Result<(), DisplayError> {
@@ -117,7 +118,7 @@ impl Display {
                 match event.code {
                     KeyCode::Char('q') => break,
                     KeyCode::Char(' ') => {
-                        if board.is_legal(player, candidate_move) {
+                        if board.is_legal(*player, candidate_move) {
                             return Ok(());
                         }
                     }
@@ -125,46 +126,46 @@ impl Display {
                         *candidate_move = match candidate_move {
                             Move::AddWall {
                                 location: _,
-                                horizontal: _,
+                                orientation: _,
                             } => Move::MoveToken(Direction::Up),
                             Move::MoveToken(_) => Move::AddWall {
                                 location: (4, 4),
-                                horizontal: true,
+                                orientation: Orientation::Horizontal,
                             },
                         }
                     }
                     KeyCode::Char('/') | KeyCode::Char('r') => match candidate_move {
                         Move::AddWall {
-                            horizontal,
+                            orientation,
                             location: _,
-                        } => *horizontal = !*horizontal,
+                        } => *orientation = orientation.other(),
 
                         Move::MoveToken(_) => (),
                     },
                     KeyCode::Left => match candidate_move {
                         Move::AddWall {
-                            horizontal: _,
+                            orientation: _,
                             location: (x, _),
                         } => *x = if *x > 0 { *x - 1 } else { 0 },
                         Move::MoveToken(d) => *d = Direction::Left,
                     },
                     KeyCode::Right => match candidate_move {
                         Move::AddWall {
-                            horizontal: _,
+                            orientation: _,
                             location: (x, _),
                         } => *x = if *x < 7 { *x + 1 } else { 7 },
                         Move::MoveToken(d) => *d = Direction::Right,
                     },
                     KeyCode::Up => match candidate_move {
                         Move::AddWall {
-                            horizontal: _,
+                            orientation: _,
                             location: (_, y),
                         } => *y = if *y > 0 { *y - 1 } else { 0 },
                         Move::MoveToken(d) => *d = Direction::Up,
                     },
                     KeyCode::Down => match candidate_move {
                         Move::AddWall {
-                            horizontal: _,
+                            orientation: _,
                             location: (_, y),
                         } => *y = if *y < 7 { *y + 1 } else { 7 },
                         Move::MoveToken(d) => *d = Direction::Down,
@@ -179,7 +180,7 @@ impl Display {
         Err(DisplayError::Quit)
     }
 
-    pub fn show(&mut self, board: &Board) -> Result<(), DisplayError> {
+    pub fn show(&mut self, board: &BoardV1) -> Result<(), DisplayError> {
         queue!(stdout(), Clear(ClearType::All))?;
         display(board, None)?;
         stdout().flush()?;
@@ -187,9 +188,11 @@ impl Display {
     }
 }
 
-fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(), DisplayError> {
+fn display(board: &BoardV1, player_and_move: Option<(&Player, &Move)>) -> Result<(), DisplayError> {
     for (y, cells) in board.cells.iter().enumerate() {
+        let y = y as u8;
         for (x, cell) in cells.iter().enumerate() {
+            let x = x as u8;
             let mut cell = DisplayCell {
                 right: DisplayWallState::from_wall_state(cell.right),
                 bottom: DisplayWallState::from_wall_state(cell.bottom),
@@ -200,7 +203,7 @@ fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(
                 Some((
                     _,
                     Move::AddWall {
-                        horizontal: false,
+                        orientation: Orientation::Vertical,
                         location: (cx, cy),
                     },
                 )) if x == *cx && (y == *cy || y == *cy + 1) => {
@@ -213,7 +216,7 @@ fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(
                 Some((
                     _,
                     Move::AddWall {
-                        horizontal: true,
+                        orientation: Orientation::Horizontal,
                         location: (cx, cy),
                     },
                 )) if y == *cy && (x == *cx || x == *cx + 1) => {
@@ -228,7 +231,7 @@ fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(
             if let Some((
                 _,
                 Move::AddWall {
-                    horizontal: _,
+                    orientation: _,
                     location: (cx, cy),
                 },
             )) = player_and_move
@@ -256,9 +259,9 @@ fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(
     }
 
     if let Some((player, candidate_move)) = player_and_move {
-        if board.is_legal(player, candidate_move) {
+        if board.is_legal(*player, candidate_move) {
             if let Move::MoveToken(d) = candidate_move {
-                if let Some(candidate_pos) = d.shift(board.location(player)) {
+                if let Some(candidate_pos) = d.shift(*board.location(player)) {
                     queue!(
                         stdout(),
                         SetForegroundColor(DisplayWallState::Candidate.to_color()),
@@ -273,7 +276,7 @@ fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(
         }
     }
 
-    let packed_board: crate::bitpacked::Board = board.clone().into();
+    // let packed_board: crate::bitpacked::BoardV2 = board.clone().into();
 
     queue!(
         stdout(),
@@ -281,12 +284,12 @@ fn display(board: &Board, player_and_move: Option<(&Player, &Move)>) -> Result<(
         crossterm::cursor::MoveTo(0, 18),
         Print(format!(
             "Player 1 distance: {:?}",
-            packed_board.distance_to_goal(crate::Player::Player1)
+            board.distance_to_goal(crate::Player::Player1)
         )),
         crossterm::cursor::MoveTo(0, 19),
         Print(format!(
             "Player 2 distance: {:?}",
-            packed_board.distance_to_goal(crate::Player::Player2)
+            board.distance_to_goal(crate::Player::Player2)
         )),
     )?;
 
