@@ -9,7 +9,7 @@ use crossterm::{
     },
     ErrorKind,
 };
-use quoridor_game::v1::{BoardV1, Cell};
+use quoridor_game::v1::{BoardV1, Cell, WallState};
 use std::io::{stdout, Write};
 
 #[derive(Clone, Copy, PartialEq, Eq)]

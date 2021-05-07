@@ -6,6 +6,11 @@ pub struct Cell<WS> {
     pub bottom: WS,
     pub joint: WS,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum WallState {
+    Wall,
+    Open,
+}
 
 pub type RegularCell = Cell<WallState>;
 
@@ -49,6 +54,10 @@ impl Board for BoardV1 {
                 Direction::Left => self.cell(&(loc.0 - 1, loc.1)).right == WallState::Open,
                 Direction::Right => self.cell(&(loc.0, loc.1)).right == WallState::Open,
             }
+    }
+
+    fn get_wall_state(&self, _location: (u8, u8)) -> Option<Orientation> {
+        todo!()
     }
 
     fn player_location(&self, player: Player) -> (u8, u8) {

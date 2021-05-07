@@ -5,12 +5,6 @@ pub mod v1;
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum WallState {
-    Wall,
-    Open,
-}
-
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Orientation {
     Horizontal,

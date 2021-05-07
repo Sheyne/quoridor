@@ -3,4 +3,5 @@
 members = [
     "quoridor-cli",
     "quoridor-game",
+    "quoridor-wasm",
 ]

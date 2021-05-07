@@ -64,6 +64,22 @@ impl Board for BoardV2 {
         }
     }
 
+    fn get_wall_state(&self, location: (u8, u8)) -> Option<Orientation> {
+        if BoardV2::bit_mask(location)
+            .map(|x| x & self.horizontal != 0)
+            .unwrap_or(false)
+        {
+            Some(Orientation::Horizontal)
+        } else if BoardV2::bit_mask(location)
+            .map(|x| x & self.vertical != 0)
+            .unwrap_or(false)
+        {
+            Some(Orientation::Vertical)
+        } else {
+            None
+        }
+    }
+
     fn is_legal(&self, player: Player, candidate_move: &Move) -> bool {
         match candidate_move {
             Move::AddWall {
@@ -372,16 +388,16 @@ impl From<BoardV2> for crate::v1::BoardV1 {
                 let cell = res.cell_mut(&loc);
                 if x != 8 {
                     cell.right = if board.is_passible_right(loc) {
-                        crate::WallState::Open
+                        crate::v1::WallState::Open
                     } else {
-                        crate::WallState::Wall
+                        crate::v1::WallState::Wall
                     };
                 }
                 if y != 8 {
                     cell.bottom = if board.is_passible_down(loc) {
-                        crate::WallState::Open
+                        crate::v1::WallState::Open
                     } else {
-                        crate::WallState::Wall
+                        crate::v1::WallState::Wall
                     };
                 }
                 if x != 8 && y != 8 {
@@ -389,9 +405,9 @@ impl From<BoardV2> for crate::v1::BoardV1 {
                         .map(|m| (m & (board.horizontal | board.vertical)) == 0)
                         .unwrap_or(false)
                     {
-                        crate::WallState::Open
+                        crate::v1::WallState::Open
                     } else {
-                        crate::WallState::Wall
+                        crate::v1::WallState::Wall
                     };
                 }
             }
@@ -401,20 +417,20 @@ impl From<BoardV2> for crate::v1::BoardV1 {
     }
 }
 
-impl From<super::WallState> for State {
-    fn from(s: super::WallState) -> Self {
+impl From<crate::v1::WallState> for State {
+    fn from(s: crate::v1::WallState) -> Self {
         match s {
-            super::WallState::Open => State::Open,
-            super::WallState::Wall => State::Occupied,
+            crate::v1::WallState::Open => State::Open,
+            crate::v1::WallState::Wall => State::Occupied,
         }
     }
 }
 
-impl From<State> for super::WallState {
+impl From<State> for crate::v1::WallState {
     fn from(s: State) -> Self {
         match s {
-            State::Open => super::WallState::Open,
-            State::Occupied => super::WallState::Wall,
+            State::Open => crate::v1::WallState::Open,
+            State::Occupied => crate::v1::WallState::Wall,
         }
     }
 }
