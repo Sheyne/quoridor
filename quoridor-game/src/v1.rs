@@ -1,5 +1,14 @@
 use super::*;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct Cell<WS> {
+    pub right: WS,
+    pub bottom: WS,
+    pub joint: WS,
+}
+
+pub type RegularCell = Cell<WallState>;
+
 impl Board for BoardV1 {
     fn empty() -> Self {
         let open_cell = RegularCell {
