@@ -1,5 +1,6 @@
 use std::{
     convert::{TryFrom, TryInto},
+    hash::Hash,
     num::NonZeroU8,
 };
 
@@ -8,7 +9,7 @@ use crate::{
     Player,
 };
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct BoardV2 {
     horizontal: u64,
     vertical: u64,
@@ -17,7 +18,7 @@ pub struct BoardV2 {
     player1_walls: u8,
     player2_walls: u8,
 }
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct Position(NonZeroU8);
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
@@ -38,7 +39,12 @@ impl Board for BoardV2 {
         }
     }
 
-    fn add_wall(&mut self, location: (u8, u8), orientation: crate::game::Orientation) {
+    fn add_wall(
+        &mut self,
+        player: Player,
+        location: (u8, u8),
+        orientation: crate::game::Orientation,
+    ) {
         let bitset = match orientation {
             crate::game::Orientation::Horizontal => &mut self.horizontal,
             crate::game::Orientation::Vertical => &mut self.vertical,
@@ -46,6 +52,10 @@ impl Board for BoardV2 {
 
         if let Some(mask) = BoardV2::bit_mask(location) {
             *bitset |= mask;
+            match player {
+                Player::Player1 => self.player1_walls -= 1,
+                Player::Player2 => self.player2_walls -= 1,
+            }
         }
     }
 
@@ -61,6 +71,14 @@ impl Board for BoardV2 {
                 location,
                 orientation,
             } => {
+                if match player {
+                    Player::Player1 => self.player1_walls,
+                    Player::Player2 => self.player2_walls,
+                } == 0
+                {
+                    return false;
+                }
+
                 fn directions_to_mask(poses: impl Iterator<Item = Option<(u8, u8)>>) -> u64 {
                     poses
                         .filter_map(|x| x)
@@ -94,7 +112,7 @@ impl Board for BoardV2 {
                 };
 
                 let mut hypo = self.clone();
-                hypo.add_wall(*location, *orientation);
+                hypo.add_wall(player, *location, *orientation);
 
                 unfilled
                     && hypo.distance_to_goal(Player::Player1).is_some()
@@ -254,14 +272,14 @@ mod tests {
     #[test]
     fn test_h_walls_edge() {
         let mut board = BoardV2::empty();
-        board.add_wall((7, 2), Orientation::Horizontal);
+        board.add_wall(Player::Player1, (7, 2), Orientation::Horizontal);
         assert!(!board.is_passible_down((7, 2)));
         assert!(!board.is_passible_down((8, 2)));
     }
     #[test]
     fn test_h_walls_block_things() {
         let mut board = BoardV2::empty();
-        board.add_wall((1, 2), Orientation::Horizontal);
+        board.add_wall(Player::Player1, (1, 2), Orientation::Horizontal);
         assert!(board.is_passible_down((0, 2)));
         assert!(!board.is_passible_down((1, 2)));
         assert!(!board.is_passible_down((2, 2)));
@@ -272,7 +290,7 @@ mod tests {
     #[test]
     fn test_v_walls_edge() {
         let mut board = BoardV2::empty();
-        board.add_wall((2, 7), Orientation::Vertical);
+        board.add_wall(Player::Player1, (2, 7), Orientation::Vertical);
         assert!(!board.is_passible_right((2, 7)));
         assert!(!board.is_passible_right((2, 8)));
     }
@@ -280,7 +298,7 @@ mod tests {
     #[test]
     fn test_v_walls_block_things() {
         let mut board = BoardV2::empty();
-        board.add_wall((1, 2), Orientation::Vertical);
+        board.add_wall(Player::Player1, (1, 2), Orientation::Vertical);
         assert!(board.is_passible_right((1, 1)));
         assert!(!board.is_passible_right((1, 2)));
         assert!(!board.is_passible_right((1, 3)));
@@ -292,7 +310,7 @@ mod tests {
     #[test]
     fn test_v_walls_block_things_1() {
         let mut board = crate::game::BoardV1::empty();
-        board.add_wall((1, 2), Orientation::Vertical);
+        board.add_wall(Player::Player1, (1, 2), Orientation::Vertical);
         assert!(board.is_passible((1, 1), Direction::Right));
         assert!(!board.is_passible((1, 2), Direction::Right));
         assert!(!board.is_passible((1, 3), Direction::Right));
@@ -334,7 +352,7 @@ mod tests {
         assert_eq!(Some(9), packed.distance_to_goal(Player::Player1));
         assert_eq!(Some(9), packed.distance_to_goal(Player::Player2));
 
-        board.add_wall((3, 7), Orientation::Horizontal);
+        board.add_wall(Player::Player1, (3, 7), Orientation::Horizontal);
         let packed: BoardV2 = board.clone().into();
         assert_eq!(Some(10), packed.distance_to_goal(Player::Player2));
         assert_eq!(Some(10), packed.distance_to_goal(Player::Player1));

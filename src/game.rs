@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::hash::Hash;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum WallState {
@@ -33,7 +34,7 @@ pub type RegularCell = Cell<WallState>;
 pub trait Board {
     fn empty() -> Self;
 
-    fn add_wall(&mut self, location: (u8, u8), orientation: Orientation);
+    fn add_wall(&mut self, player: Player, location: (u8, u8), orientation: Orientation);
     fn move_token(&mut self, player: Player, direction: Direction);
     fn is_legal(&self, player: Player, candidate_move: &Move) -> bool;
 
@@ -43,7 +44,7 @@ pub trait Board {
                 location,
                 orientation,
             } => {
-                self.add_wall(*location, *orientation);
+                self.add_wall(player, *location, *orientation);
             }
             Move::MoveToken(d) => {
                 self.move_token(player, *d);
@@ -149,7 +150,12 @@ impl Board for BoardV1 {
         }
     }
 
-    fn add_wall(&mut self, location: (u8, u8), orientation: Orientation) {
+    fn add_wall(&mut self, player: Player, location: (u8, u8), orientation: Orientation) {
+        match player {
+            Player::Player1 => self.player1_walls -= 1,
+            Player::Player2 => self.player2_walls -= 1,
+        }
+
         match orientation {
             Orientation::Horizontal => {
                 self.cell_mut(&location).bottom = WallState::Wall;
@@ -170,6 +176,14 @@ impl Board for BoardV1 {
                 location,
                 orientation,
             } => {
+                if match player {
+                    Player::Player1 => self.player1_walls,
+                    Player::Player2 => self.player2_walls,
+                } == 0
+                {
+                    return false;
+                }
+
                 let (x, y) = location;
                 let unfilled = self.cell(&location).joint == WallState::Open
                     && match orientation {
@@ -184,7 +198,7 @@ impl Board for BoardV1 {
                     };
 
                 let mut hypo = self.clone();
-                hypo.add_wall(*location, *orientation);
+                hypo.add_wall(player, *location, *orientation);
 
                 unfilled
                     && hypo.distance_to_goal(Player::Player1).is_some()
@@ -239,7 +253,7 @@ pub enum Direction {
     Right,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Player {
     Player1,
     Player2,
