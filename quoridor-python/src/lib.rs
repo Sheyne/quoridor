@@ -7,7 +7,6 @@ pub struct Game {
     current_player: Player,
 }
 
-
 #[pymethods]
 impl Game {
     #[new]
@@ -30,6 +29,79 @@ impl Game {
                 },
             },
         )
+    }
+
+    pub fn can_add_wall(&self, x: u8, y: u8, orientation: u8) -> bool {
+        self.board.is_legal(
+            self.current_player,
+            &Move::AddWall {
+                location: (x, y),
+                orientation: match orientation {
+                    0 => quoridor_game::Orientation::Horizontal,
+                    1 => quoridor_game::Orientation::Vertical,
+                    _ => return false,
+                },
+            },
+        )
+    }
+
+    pub fn can_move_to(&self, new_location: (u8, u8)) -> bool {
+        let dirs = [
+            quoridor_game::Direction::Up,
+            quoridor_game::Direction::Down,
+            quoridor_game::Direction::Left,
+            quoridor_game::Direction::Right,
+        ];
+
+        let current_loc = self.board.player_location(self.current_player);
+
+        let direction = dirs
+            .iter()
+            .filter_map(|d| {
+                if let Some(nl) = d.shift(current_loc) {
+                    if nl == new_location {
+                        return Some(d);
+                    }
+                }
+                None
+            })
+            .next();
+
+        if let Some(direction) = direction {
+            self.board
+                .is_legal(self.current_player, &Move::MoveToken(*direction))
+        } else {
+            false
+        }
+    }
+
+    pub fn move_token_to(&mut self, new_location: (u8, u8)) -> bool {
+        let dirs = [
+            quoridor_game::Direction::Up,
+            quoridor_game::Direction::Down,
+            quoridor_game::Direction::Left,
+            quoridor_game::Direction::Right,
+        ];
+
+        let current_loc = self.board.player_location(self.current_player);
+
+        let direction = dirs
+            .iter()
+            .filter_map(|d| {
+                if let Some(nl) = d.shift(current_loc) {
+                    if nl == new_location {
+                        return Some(d);
+                    }
+                }
+                None
+            })
+            .next();
+
+        if let Some(direction) = direction {
+            apply_move(self, Move::MoveToken(*direction))
+        } else {
+            false
+        }
     }
 
     pub fn move_token(&mut self, direction: u8) -> bool {
