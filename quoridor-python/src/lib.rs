@@ -141,6 +141,18 @@ impl Game {
             Some(quoridor_game::Orientation::Vertical) => 2,
         }
     }
+
+    pub fn is_passible(&self, x: u8, y: u8, direction: u8) -> bool {
+        let direction = match direction {
+            0 => quoridor_game::Direction::Up,
+            1 => quoridor_game::Direction::Down,
+            2 => quoridor_game::Direction::Left,
+            3 => quoridor_game::Direction::Right,
+            _ => return false,
+        };
+
+        self.board.is_passible((x, y), direction)
+    }
 }
 
 fn apply_move(game: &mut Game, mov: Move) -> bool {
