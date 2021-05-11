@@ -40,6 +40,14 @@ impl Game {
         )
     }
 
+    pub fn available_walls(&self, player: u8) -> u8 {
+        self.board.available_walls(match player {
+            1 => Player::Player1,
+            2 => Player::Player2,
+            _ => return 0,
+        })
+    }
+
     pub fn can_add_wall(&self, x: u8, y: u8, orientation: u8) -> bool {
         self.board.is_legal(
             self.current_player,
