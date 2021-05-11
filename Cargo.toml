@@ -5,4 +5,5 @@ members = [
     "quoridor-game",
     "quoridor-wasm",
     "quoridor-python",
+    "test_runner"
 ]

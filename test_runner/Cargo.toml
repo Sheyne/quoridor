@@ -1,5 +1,5 @@
 [package]
-name = "quoridor-game"
+name = "test_runner"
 version = "0.1.0"
 authors = ["Sheyne Anderson <sanderson@novacoast.com>"]
 edition = "2018"
@@ -7,7 +7,4 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-pathfinding = "2.1.2"
-fxhash = "0.2.1"
-mcts =  "0.3.0"
+quoridor-game = { path = "../quoridor-game" }

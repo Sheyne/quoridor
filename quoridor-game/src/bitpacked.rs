@@ -1,10 +1,10 @@
+use crate::{Board, Direction, Move, Orientation, Player};
+use fxhash::FxHasher;
 use std::{
     convert::{TryFrom, TryInto},
-    hash::Hash,
+    hash::{Hash, Hasher},
     num::NonZeroU8,
 };
-
-use crate::{Board, Direction, Move, Orientation, Player};
 
 #[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct BoardV2 {
@@ -168,6 +168,15 @@ impl Board for BoardV2 {
 }
 
 impl BoardV2 {
+    pub fn fx_hash(&self, hasher: &mut FxHasher) {
+        hasher.write_u64(self.horizontal);
+        hasher.write_u64(self.vertical);
+        hasher.write_u8(self.player1_pos.0.into());
+        hasher.write_u8(self.player2_pos.0.into());
+        hasher.write_u8(self.player2_walls);
+        hasher.write_u8(self.player2_walls);
+    }
+
     pub fn flip(&self) -> BoardV2 {
         fn flip_bytes(n: u64) -> u64 {
             let a = (n >> 56) & 0xff;

@@ -100,7 +100,7 @@ pub enum Direction {
     Right,
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum Player {
     Player1,
     Player2,
@@ -135,7 +135,7 @@ impl Direction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Move {
     AddWall {
         orientation: Orientation,

@@ -2,12 +2,12 @@ use crate::{Board, Direction, Move, Orientation, Player};
 // use fxhash::FxHashMap;
 use std::hash::Hash;
 
-pub struct AiPlayer<B: Board + Clone> {
+pub struct GreedyAiPlayer<B: Board + Clone> {
     board: B,
     current_player: Player,
 }
 
-impl<B: Board + Clone + Hash + Eq> AiPlayer<B> {
+impl<B: Board + Clone + Hash + Eq> GreedyAiPlayer<B> {
     pub fn new(board: B) -> Self {
         Self {
             board,
@@ -16,7 +16,7 @@ impl<B: Board + Clone + Hash + Eq> AiPlayer<B> {
     }
 }
 
-impl<B: Board + Clone + Hash + Eq> AiPlayer<B> {
+impl<B: Board + Clone + Hash + Eq> GreedyAiPlayer<B> {
     pub fn send(&mut self, m: &Move) {
         self.board.apply_move(m, self.current_player);
         self.current_player = self.current_player.other();

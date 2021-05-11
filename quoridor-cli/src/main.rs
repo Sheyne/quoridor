@@ -2,10 +2,13 @@ use std::hash::Hash;
 
 use clap::{AppSettings, Clap};
 use display::DisplayError;
-use quoridor_game::ai::AiPlayer;
+use quoridor_game::ai::greedy::GreedyAiPlayer;
+use quoridor_game::ai::mcts::MctsAiPlayer;
 use quoridor_game::bitpacked::BoardV2;
 use quoridor_game::*;
 use tcp::GameError;
+
+mod replay;
 
 #[derive(Debug)]
 pub enum Error {
@@ -29,6 +32,15 @@ pub trait RemotePlayer {
     fn receive(&mut self) -> Result<Move, Error>;
 }
 
+impl RemotePlayer for replay::Replay {
+    fn send(&mut self, m: &Move) -> Result<(), Error> {
+        Ok(())
+    }
+    fn receive(&mut self) -> Result<Move, Error> {
+        Ok(self.next())
+    }
+}
+
 impl RemotePlayer for tcp::Game {
     fn send(&mut self, m: &Move) -> Result<(), Error> {
         tcp::Game::send(self, m).map_err(Error::TcpError)
@@ -38,13 +50,23 @@ impl RemotePlayer for tcp::Game {
     }
 }
 
-impl<B: Board + Clone + Hash + Eq> RemotePlayer for quoridor_game::ai::AiPlayer<B> {
+impl<B: Board + Clone + Hash + Eq> RemotePlayer for quoridor_game::ai::greedy::GreedyAiPlayer<B> {
     fn send(&mut self, m: &Move) -> Result<(), Error> {
-        quoridor_game::ai::AiPlayer::send(self, m);
+        quoridor_game::ai::greedy::GreedyAiPlayer::send(self, m);
         Ok(())
     }
     fn receive(&mut self) -> Result<Move, Error> {
-        Ok(quoridor_game::ai::AiPlayer::receive(self))
+        Ok(quoridor_game::ai::greedy::GreedyAiPlayer::receive(self))
+    }
+}
+
+impl RemotePlayer for quoridor_game::ai::mcts::MctsAiPlayer {
+    fn send(&mut self, m: &Move) -> Result<(), Error> {
+        quoridor_game::ai::mcts::MctsAiPlayer::send(self, m);
+        Ok(())
+    }
+    fn receive(&mut self) -> Result<Move, Error> {
+        Ok(quoridor_game::ai::mcts::MctsAiPlayer::receive(self))
     }
 }
 
@@ -63,7 +85,9 @@ struct Opts {
 
 #[derive(Clap)]
 enum LaunchAction {
-    Ai,
+    GreedyAi,
+    MctsAi,
+    Replay1,
     Serve {
         #[clap(long, default_value = "3333")]
         port: u16,
@@ -80,7 +104,22 @@ fn main() -> Result<(), Error> {
     let mut tcp: Box<dyn RemotePlayer> = match opts.action {
         LaunchAction::Serve { port } => Box::new(tcp::Game::serve(format!("0.0.0.0:{}", port))?),
         LaunchAction::Connect { connect } => Box::new(tcp::Game::connect(connect)?),
-        LaunchAction::Ai => Box::new(AiPlayer::new(board.clone())),
+        LaunchAction::GreedyAi => Box::new(GreedyAiPlayer::new(board.clone())),
+        LaunchAction::MctsAi => Box::new(MctsAiPlayer::new(board.clone())),
+        LaunchAction::Replay1 => {
+            let moves = replay::Replay::one();
+            let mut player = Player::Player1;
+            let mut display = display::Display::new()?;
+            for mov in moves.1 {
+                display.show(&board.clone().into())?;
+                std::thread::sleep(std::time::Duration::from_millis(700));
+                board.apply_move(&mov, player);
+                player = player.other();
+            }
+            display.show(&board.clone().into())?;
+            std::thread::sleep(std::time::Duration::from_millis(700));
+            return Ok(());
+        }
     };
 
     let mut display = display::Display::new()?;
@@ -94,10 +133,10 @@ fn main() -> Result<(), Error> {
 
     let mut candidate = Move::MoveToken(Direction::Down);
     loop {
-        let v2 = board.clone().into();
-        display.show(&v2)?;
+        let v1 = board.clone().into();
+        display.show(&v1)?;
         if current_player == iam {
-            display.get_move(&v2, &iam, &mut candidate)?;
+            display.get_move(&v1, &iam, &mut candidate)?;
             if !board.is_legal(iam, &candidate) {
                 todo!();
             }
