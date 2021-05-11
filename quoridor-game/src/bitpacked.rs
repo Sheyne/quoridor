@@ -18,6 +18,12 @@ pub struct BoardV2 {
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
 pub struct Position(NonZeroU8);
 
+impl std::fmt::Display for Position {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Copy)]
 pub enum State {
     Open = 0,
@@ -94,6 +100,10 @@ impl Board for BoardV2 {
                     return false;
                 }
 
+                if BoardV2::bit_mask(*location).is_none() {
+                    return false;
+                }
+
                 fn directions_to_mask(poses: impl Iterator<Item = Option<(u8, u8)>>) -> u64 {
                     poses
                         .filter_map(|x| x)
@@ -158,6 +168,53 @@ impl Board for BoardV2 {
 }
 
 impl BoardV2 {
+    pub fn flip(&self) -> BoardV2 {
+        fn flip_bytes(n: u64) -> u64 {
+            let a = (n >> 56) & 0xff;
+            let b = (n >> 48) & 0xff;
+            let c = (n >> 40) & 0xff;
+            let d = (n >> 32) & 0xff;
+            let e = (n >> 24) & 0xff;
+            let f = (n >> 16) & 0xff;
+            let g = (n >> 8) & 0xff;
+            let h = (n >> 0) & 0xff;
+
+            (a << 0)
+                | (b << 8)
+                | (c << 16)
+                | (d << 24)
+                | (e << 32)
+                | (f << 40)
+                | (g << 48) << (h << 56)
+        }
+
+        fn flip_player(l: Position) -> Position {
+            let (x, y) = l.into();
+            (x, 8 - y).try_into().unwrap()
+        }
+
+        BoardV2 {
+            horizontal: flip_bytes(self.horizontal),
+            vertical: flip_bytes(self.vertical),
+            player1_pos: flip_player(self.player2_pos),
+            player2_pos: flip_player(self.player1_pos),
+            player1_walls: self.player2_walls,
+            player2_walls: self.player1_walls,
+        }
+    }
+
+    pub fn repr_string(&self) -> String {
+        format!(
+            "{} {} {} {} {} {}",
+            self.horizontal,
+            self.vertical,
+            self.player1_pos,
+            self.player2_pos,
+            self.player1_walls,
+            self.player2_walls,
+        )
+    }
+
     fn bit_mask(p: (u8, u8)) -> Option<u64> {
         BoardV2::bit_idx(p).map(|b| 1 << b)
     }
@@ -282,6 +339,18 @@ mod tests {
         check(0, 0);
         check(5, 8);
         check(8, 8);
+    }
+
+    #[test]
+    fn cant_add_walls_past_edge() {
+        let board = BoardV2::empty();
+        assert!(!board.is_legal(
+            Player::Player1,
+            &Move::AddWall {
+                location: (2, 8),
+                orientation: Orientation::Horizontal
+            }
+        ))
     }
 
     #[test]

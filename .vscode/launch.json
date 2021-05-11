@@ -5,12 +5,25 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+        {
             "name": "Launch",
             "type": "lldb",
             "request": "launch",
             "cwd": "${workspaceRoot}",
             "program": "${workspaceRoot}/target/debug/quoridor",
-            "args": ["--player", "1", "serve", "--port", "3334"],
+            "args": [
+                "--player",
+                "1",
+                "serve",
+                "--port",
+                "3334"
+            ],
         }
     ]
 }

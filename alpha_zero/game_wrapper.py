@@ -2,8 +2,24 @@ import numpy
 from quoridor_python import Game as RustGame
 
 class QuoridorGame:
-    def __init__(self):
-        self.rust_game = RustGame()
+    def __init__(self, rust_game=None):
+        if rust_game is None:
+            self.rust_game = RustGame()
+        else:
+            self.rust_game = rust_game
+
+    def copy(self):
+        return QuoridorGame(self.rust_game.clone())
+
+    def as_str(self):
+        return self.rust_game.as_str()
+
+    def get_result(self, player):
+        if self.rust_game.get_location(1)[1] == 7:
+            return 1 * player
+        if self.rust_game.get_location(2)[1] == 0:
+            return -1 * player
+        return 0
 
     def add_wall(self, x, y, horizontal=True):
         return self.rust_game.add_wall(x, y, 0 if horizontal else 1)
@@ -17,53 +33,80 @@ class QuoridorGame:
     def move_to(self, x, y):
         return self.rust_game.move_token_to((x, y))
 
+    def execute_move_at_idx(self, move_idx):
+        if move_idx < 64 * 2:
+            horizontal = move_idx < 64
+            if not horizontal:
+                move_idx -= 64
+            x = move_idx % 8
+            y = move_idx // 8
+            added = self.add_wall(x, y, horizontal)
+        else:
+            move_idx -= 64*2
+            x = move_idx % 9
+            y = move_idx // 9
+            added = self.move_to(x, y)
+
     def valid_moves_as_numpy(self):
         add_walls_h = [
             self.can_add_wall(x, y, horizontal=True)
-            for y in range(9)
-            for x in range(9)
+            for y in range(8)
+            for x in range(8)
         ]
         add_walls_v = [
             self.can_add_wall(x, y, horizontal=False)
-            for y in range(9)
-            for x in range(9)
+            for y in range(8)
+            for x in range(8)
         ]
         token_moves = [
             self.can_move_to(x, y)
-            for y in range(8)
-            for x in range(8)
+            for y in range(9)
+            for x in range(9)
         ]
 
         return numpy.array(add_walls_h + add_walls_v + token_moves, dtype="float32")
 
-    def state_as_numpy(self):
-        result = numpy.zeros((5, 9, 9), dtype="float32")
+    def canonical_form(self):
+        return QuoridorGame(rust_game=self.rust_game.canonical_form())
 
-        multiplier = 1 if self.rust_game.current_player() == 1 else -1
+    def state_as_numpy(self):
+        result = numpy.zeros((9, 9, 5), dtype="float32")
+
+        multiplier = self.current_player
 
         x, y = self.rust_game.get_location(1)
-        result[0, y, x] = 1 * multiplier
+        result[y, x, 0] = 1 * multiplier
         x, y = self.rust_game.get_location(2)
-        result[0, y, x] = -1 * multiplier
+        result[y, x, 0] = -1 * multiplier
 
         for y in range(9):
             for x in range(9):
                 for direction in range(4):
                     is_passible = 1 if self.rust_game.is_passible(x, y, direction) else 0
-                    result[direction + 1, y, x] = is_passible
+                    result[y, x, direction + 1] = is_passible
 
-        if self.rust_game.current_player() == 2:
-            result = result[:, ::-1, :]
+        result = result[:, ::self.current_player, :]
 
         return result
 
+    def distance_to_goal(self, player):
+        return self.board.distance_to_goal(1 if player == 1 else 2)
+
+    @property
+    def s(self):
+        return self.as_str()
+
+    @property
+    def current_player(self):
+        return 1 if self.rust_game.current_player() == 1 else -1
 
 if __name__ == "__main__":
     g = QuoridorGame()
-    g.add_wall(2, 2, horizontal=False)
-    print(g.can_add_wall(3, 2, horizontal=False))
+    g.add_wall(2, 8, horizontal=True)
+    print(g.can_add_wall(2, 8, horizontal=True))
     print(g.rust_game.get_location(2))
     print(g.can_move_to(4, 7))
     g.move_to(4, 7)
     print(g.state_as_numpy())
     print(g.valid_moves_as_numpy())
+    print(g.as_str())
