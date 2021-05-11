@@ -1,7 +1,5 @@
 import logging
 import math
-import sys
-sys.setrecursionlimit(11000)
 
 import numpy as np
 
@@ -56,7 +54,7 @@ class MCTS():
             probs = [x / counts_sum for x in counts]
         return probs
 
-    def search(self, canonicalBoard, depth=0):
+    def search(self, canonicalBoard):
         """
         This function performs one iteration of MCTS. It is recursively called
         till a leaf node is found. The action chosen at each node is one that
@@ -72,9 +70,6 @@ class MCTS():
         Returns:
             v: the negative of the value of the current canonicalBoard
         """
-
-        if depth > 200:
-            return 0
 
         s = self.game.stringRepresentation(canonicalBoard)
 
@@ -126,7 +121,7 @@ class MCTS():
         next_s, next_player = self.game.getNextState(canonicalBoard, 1, a)
         next_s = self.game.getCanonicalForm(next_s, next_player)
 
-        v = self.search(next_s, depth=depth+1)
+        v = self.search(next_s)
 
         if (s, a) in self.Qsa:
             self.Qsa[(s, a)] = (self.Nsa[(s, a)] * self.Qsa[(s, a)] + v) / (self.Nsa[(s, a)] + 1)
