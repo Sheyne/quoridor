@@ -1,11 +1,14 @@
-use std::hash::Hash;
-
 use clap::{AppSettings, Clap};
 use display::DisplayError;
+use parse_display::FromStr;
 use quoridor_game::ai::greedy::GreedyAiPlayer;
 use quoridor_game::ai::mcts::MctsAiPlayer;
 use quoridor_game::bitpacked::BoardV2;
 use quoridor_game::*;
+use std::{
+    convert::{TryFrom, TryInto},
+    hash::Hash,
+};
 use tcp::GameError;
 
 mod replay;
@@ -79,88 +82,119 @@ mod tcp;
 #[clap(version = "1.0", author = "Sheyne Anderson")]
 #[clap(setting = AppSettings::ColoredHelp)]
 struct Opts {
-    #[clap(subcommand)]
-    action: LaunchAction,
-
-    #[clap(long)]
-    player: usize,
+    player1: PlayerKind,
+    player2: PlayerKind,
 }
 
-#[derive(Clap)]
-enum LaunchAction {
+#[derive(Clap, FromStr)]
+#[display(style = "kebab-case")]
+enum PlayerKind {
+    Keyboard,
     GreedyAi,
     MctsAi,
     Replay1,
+    #[display("serve-{port}")]
     Serve {
-        #[clap(long, default_value = "3333")]
         port: u16,
     },
+    #[display("connect-{connect}")]
     Connect {
         connect: String,
     },
 }
 
+enum PlayerDriver {
+    RemotePlayer(Box<dyn RemotePlayer>),
+    Keyboard,
+}
+
+impl TryFrom<PlayerKind> for PlayerDriver {
+    type Error = Error;
+
+    fn try_from(kind: PlayerKind) -> Result<Self, Error> {
+        let board = BoardV2::empty();
+
+        Ok(match kind {
+            PlayerKind::Serve { port } => {
+                PlayerDriver::RemotePlayer(Box::new(tcp::Game::serve(format!("0.0.0.0:{}", port))?))
+            }
+            PlayerKind::Connect { connect } => {
+                PlayerDriver::RemotePlayer(Box::new(tcp::Game::connect(connect)?))
+            }
+            PlayerKind::GreedyAi => {
+                PlayerDriver::RemotePlayer(Box::new(GreedyAiPlayer::new(board)))
+            }
+            PlayerKind::MctsAi => PlayerDriver::RemotePlayer(Box::new(MctsAiPlayer::new(board))),
+            PlayerKind::Keyboard => PlayerDriver::Keyboard,
+            _ => todo!(),
+        })
+    }
+}
+
+struct Main {
+    player1: PlayerDriver,
+    player2: PlayerDriver,
+    display: display::Display,
+    board: BoardV2,
+    candidate: Move,
+}
+
+impl Main {
+    fn driver(&mut self, p: Player) -> &mut PlayerDriver {
+        match p {
+            Player::Player1 => &mut self.player1,
+            Player::Player2 => &mut self.player2,
+        }
+    }
+
+    fn get_move(&mut self, p: Player) -> Result<Move, Error> {
+        Ok(match self.driver(p) {
+            PlayerDriver::Keyboard => {
+                self.display
+                    .get_move(&self.board.clone().into(), &p, &mut self.candidate)?;
+                self.candidate.clone()
+            }
+            PlayerDriver::RemotePlayer(p) => p.receive()?,
+        })
+    }
+
+    fn send_move(&mut self, p: Player, mov: &Move) -> Result<(), Error> {
+        match self.driver(p) {
+            PlayerDriver::Keyboard => (),
+            PlayerDriver::RemotePlayer(p) => p.send(mov)?,
+        }
+        Ok(())
+    }
+}
+
 fn main() -> Result<(), Error> {
     let opts: Opts = Opts::parse();
 
-    let mut board = BoardV2::empty();
-    let mut tcp: Box<dyn RemotePlayer> = match opts.action {
-        LaunchAction::Serve { port } => Box::new(tcp::Game::serve(format!("0.0.0.0:{}", port))?),
-        LaunchAction::Connect { connect } => Box::new(tcp::Game::connect(connect)?),
-        LaunchAction::GreedyAi => Box::new(GreedyAiPlayer::new(board.clone())),
-        LaunchAction::MctsAi => Box::new(MctsAiPlayer::new(board.clone())),
-        LaunchAction::Replay1 => {
-            let moves = replay::Replay::one();
-            let mut player = Player::Player1;
-            let mut display = display::Display::new()?;
-            for mov in moves.1 {
-                display.show(&board.clone().into())?;
-                std::thread::sleep(std::time::Duration::from_millis(700));
-                board
-                    .apply_move(&mov, player)
-                    .map_err(|_| Error::InvalidMoveAttempted)?;
-                player = player.other();
-            }
-            display.show(&board.clone().into())?;
-            std::thread::sleep(std::time::Duration::from_millis(700));
-            return Ok(());
-        }
-    };
-
-    let mut display = display::Display::new()?;
-    let iam = if opts.player == 1 {
-        Player::Player1
-    } else {
-        Player::Player2
+    let mut main = Main {
+        player1: opts.player1.try_into()?,
+        player2: opts.player2.try_into()?,
+        display: display::Display::new()?,
+        board: BoardV2::empty(),
+        candidate: Move::MoveToken(Direction::Down),
     };
 
     let mut current_player = Player::Player1;
 
-    let mut candidate = Move::MoveToken(Direction::Down);
     loop {
-        let v1 = board.clone().into();
-        display.show(&v1)?;
-        if current_player == iam {
-            display.get_move(&v1, &iam, &mut candidate)?;
-            if !board.is_legal(iam, &candidate) {
-                todo!();
-            }
+        main.display.show(&main.board.clone().into())?;
 
-            board
-                .apply_move(&candidate, iam)
-                .map_err(|_| Error::InvalidMoveAttempted)?;
+        let candidate = main.get_move(current_player)?;
 
-            tcp.send(&candidate)?;
-        } else {
-            let candidate = tcp.receive()?;
-            if !board.is_legal(current_player, &candidate) {
-                todo!();
-            }
-
-            board
-                .apply_move(&candidate, current_player)
-                .map_err(|_| Error::InvalidMoveAttempted)?;
+        if !main.board.is_legal(current_player, &candidate) {
+            todo!();
         }
+
+        main.board
+            .apply_move(&candidate, current_player)
+            .map_err(|_| Error::InvalidMoveAttempted)?;
+
+        main.send_move(current_player.other(), &candidate)?;
+
         current_player = current_player.other();
     }
 }

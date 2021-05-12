@@ -30,6 +30,9 @@ pub trait Board {
         orientation: Orientation,
     ) -> Result<(), ()>;
     fn move_token(&mut self, player: Player, direction: Direction) -> Result<(), ()>;
+    fn is_probably_legal(&self, player: Player, candidate_move: &Move) -> bool {
+        self.is_legal(player, candidate_move)
+    }
     fn is_legal(&self, player: Player, candidate_move: &Move) -> bool;
     fn get_wall_state(&self, location: (u8, u8)) -> Option<Orientation>;
     fn available_walls(&self, player: Player) -> u8;

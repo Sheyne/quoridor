@@ -18,8 +18,7 @@
             "cwd": "${workspaceRoot}",
             "program": "${workspaceRoot}/target/debug/quoridor-cli",
             "args": [
-                "--player",
-                "1",
+                "keyboard",
                 "mcts-ai"
             ],
         }

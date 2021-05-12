@@ -97,6 +97,63 @@ impl Board for BoardV2 {
         }
     }
 
+    fn is_probably_legal(&self, player: Player, candidate_move: &Move) -> bool {
+        match candidate_move {
+            Move::AddWall {
+                location,
+                orientation,
+            } => {
+                if match player {
+                    Player::Player1 => self.player1_walls,
+                    Player::Player2 => self.player2_walls,
+                } == 0
+                {
+                    return false;
+                }
+
+                if BoardV2::bit_mask(*location).is_none() {
+                    return false;
+                }
+
+                fn directions_to_mask(poses: impl Iterator<Item = Option<(u8, u8)>>) -> u64 {
+                    poses
+                        .filter_map(|x| x)
+                        .filter_map(|x| BoardV2::bit_mask(x))
+                        .fold(0, |acc, x| acc | x)
+                }
+
+                let h_mask = directions_to_mask(
+                    [
+                        Direction::Left.shift(*location),
+                        Some(*location),
+                        Direction::Right.shift(*location),
+                    ]
+                    .iter()
+                    .map(|x| *x),
+                );
+
+                let v_mask = directions_to_mask(
+                    [
+                        Direction::Up.shift(*location),
+                        Some(*location),
+                        Direction::Down.shift(*location),
+                    ]
+                    .iter()
+                    .map(|x| *x),
+                );
+
+                let unfilled = match orientation {
+                    Orientation::Vertical => (self.vertical & v_mask) == 0,
+                    Orientation::Horizontal => (self.horizontal & h_mask) == 0,
+                };
+                unfilled
+            }
+            Move::MoveToken(direction) => {
+                self.is_passible(self.player_location(player), *direction)
+            }
+        }
+    }
+
     fn is_legal(&self, player: Player, candidate_move: &Move) -> bool {
         match candidate_move {
             Move::AddWall {
