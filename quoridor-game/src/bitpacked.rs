@@ -56,17 +56,20 @@ impl Board for BoardV2 {
         orientation: crate::Orientation,
     ) -> Result<(), ()> {
         BoardV2::bit_mask(location)
-            .map(|mask| {
+            .and_then(|mask| {
+                if (self.vertical | self.horizontal) & mask != 0 {
+                    return None;
+                }
                 let bitset = match orientation {
                     crate::Orientation::Horizontal => &mut self.horizontal,
                     crate::Orientation::Vertical => &mut self.vertical,
                 };
-
                 *bitset |= mask;
                 match player {
                     Player::Player1 => self.player1_walls -= 1,
                     Player::Player2 => self.player2_walls -= 1,
                 }
+                Some(())
             })
             .ok_or(())
     }
@@ -346,6 +349,61 @@ mod tests {
     use crate::*;
 
     #[test]
+    fn cant_create_overlapping_walls() {
+        let mut board = BoardV2::empty();
+        board
+            .add_wall(Player::Player1, (5, 5), Orientation::Horizontal)
+            .unwrap();
+        assert!(!board.is_legal(
+            Player::Player2,
+            &Move::AddWall {
+                orientation: Orientation::Horizontal,
+                location: (5, 5)
+            }
+        ));
+        assert!(board
+            .add_wall(Player::Player2, (5, 5), Orientation::Vertical)
+            .is_err());
+    }
+    #[test]
+    fn cant_create_overlapping_walls_anywhere() {
+        fn check_location(l: (u8, u8), first_orientation: Orientation) {
+            let mut board = BoardV2::empty();
+            board
+                .add_wall(Player::Player1, l, first_orientation)
+                .unwrap();
+            assert!(!board.is_legal(
+                Player::Player2,
+                &Move::AddWall {
+                    orientation: first_orientation,
+                    location: l
+                }
+            ));
+            assert!(board
+                .add_wall(Player::Player2, l, first_orientation)
+                .is_err());
+            assert!(!board.is_legal(
+                Player::Player2,
+                &Move::AddWall {
+                    orientation: first_orientation.other(),
+                    location: l
+                }
+            ));
+            assert!(board
+                .add_wall(Player::Player2, l, first_orientation.other())
+                .is_err());
+        }
+
+        for y in 0..=7 {
+            for x in 0..=7 {
+                for o in &[Orientation::Vertical, Orientation::Horizontal] {
+                    check_location((x, y), *o);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn test_position_conversions() {
         fn check(a: u8, b: u8) {
             let p: Position = (a, b).try_into().unwrap();
@@ -373,14 +431,18 @@ mod tests {
     #[test]
     fn test_h_walls_edge() {
         let mut board = BoardV2::empty();
-        board.add_wall(Player::Player1, (7, 2), Orientation::Horizontal);
+        board
+            .add_wall(Player::Player1, (7, 2), Orientation::Horizontal)
+            .unwrap();
         assert!(!board.is_passible_down((7, 2)));
         assert!(!board.is_passible_down((8, 2)));
     }
     #[test]
     fn test_h_walls_block_things() {
         let mut board = BoardV2::empty();
-        board.add_wall(Player::Player1, (1, 2), Orientation::Horizontal);
+        board
+            .add_wall(Player::Player1, (1, 2), Orientation::Horizontal)
+            .unwrap();
         assert!(board.is_passible_down((0, 2)));
         assert!(!board.is_passible_down((1, 2)));
         assert!(!board.is_passible_down((2, 2)));
@@ -391,7 +453,9 @@ mod tests {
     #[test]
     fn test_v_walls_edge() {
         let mut board = BoardV2::empty();
-        board.add_wall(Player::Player1, (2, 7), Orientation::Vertical);
+        board
+            .add_wall(Player::Player1, (2, 7), Orientation::Vertical)
+            .unwrap();
         assert!(!board.is_passible_right((2, 7)));
         assert!(!board.is_passible_right((2, 8)));
     }
@@ -399,7 +463,9 @@ mod tests {
     #[test]
     fn test_v_walls_block_things() {
         let mut board = BoardV2::empty();
-        board.add_wall(Player::Player1, (1, 2), Orientation::Vertical);
+        board
+            .add_wall(Player::Player1, (1, 2), Orientation::Vertical)
+            .unwrap();
         assert!(board.is_passible_right((1, 1)));
         assert!(!board.is_passible_right((1, 2)));
         assert!(!board.is_passible_right((1, 3)));
@@ -411,7 +477,9 @@ mod tests {
     #[test]
     fn test_v_walls_block_things_1() {
         let mut board = crate::v1::BoardV1::empty();
-        board.add_wall(Player::Player1, (1, 2), Orientation::Vertical);
+        board
+            .add_wall(Player::Player1, (1, 2), Orientation::Vertical)
+            .unwrap();
         assert!(board.is_passible((1, 1), Direction::Right));
         assert!(!board.is_passible((1, 2), Direction::Right));
         assert!(!board.is_passible((1, 3), Direction::Right));
@@ -453,7 +521,9 @@ mod tests {
         assert_eq!(Some(9), packed.distance_to_goal(Player::Player1));
         assert_eq!(Some(9), packed.distance_to_goal(Player::Player2));
 
-        board.add_wall(Player::Player1, (3, 7), Orientation::Horizontal);
+        board
+            .add_wall(Player::Player1, (3, 7), Orientation::Horizontal)
+            .unwrap();
         let packed: BoardV2 = board.clone().into();
         assert_eq!(Some(10), packed.distance_to_goal(Player::Player2));
         assert_eq!(Some(10), packed.distance_to_goal(Player::Player1));
