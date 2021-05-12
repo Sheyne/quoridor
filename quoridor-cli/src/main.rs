@@ -12,6 +12,8 @@ mod replay;
 
 #[derive(Debug)]
 pub enum Error {
+    InvalidMoveAttempted,
+    CantFindMoveError,
     DisplayError(DisplayError),
     TcpError(tcp::GameError),
 }
@@ -33,7 +35,7 @@ pub trait RemotePlayer {
 }
 
 impl RemotePlayer for replay::Replay {
-    fn send(&mut self, m: &Move) -> Result<(), Error> {
+    fn send(&mut self, _m: &Move) -> Result<(), Error> {
         Ok(())
     }
     fn receive(&mut self) -> Result<Move, Error> {
@@ -52,21 +54,22 @@ impl RemotePlayer for tcp::Game {
 
 impl<B: Board + Clone + Hash + Eq> RemotePlayer for quoridor_game::ai::greedy::GreedyAiPlayer<B> {
     fn send(&mut self, m: &Move) -> Result<(), Error> {
-        quoridor_game::ai::greedy::GreedyAiPlayer::send(self, m);
-        Ok(())
+        quoridor_game::ai::greedy::GreedyAiPlayer::send(self, m)
+            .map_err(|_| Error::InvalidMoveAttempted)
     }
     fn receive(&mut self) -> Result<Move, Error> {
-        Ok(quoridor_game::ai::greedy::GreedyAiPlayer::receive(self))
+        quoridor_game::ai::greedy::GreedyAiPlayer::receive(self)
+            .map_err(|_| Error::InvalidMoveAttempted)
     }
 }
 
 impl RemotePlayer for quoridor_game::ai::mcts::MctsAiPlayer {
     fn send(&mut self, m: &Move) -> Result<(), Error> {
-        quoridor_game::ai::mcts::MctsAiPlayer::send(self, m);
-        Ok(())
+        quoridor_game::ai::mcts::MctsAiPlayer::send(self, m)
+            .map_err(|_| Error::InvalidMoveAttempted)
     }
     fn receive(&mut self) -> Result<Move, Error> {
-        Ok(quoridor_game::ai::mcts::MctsAiPlayer::receive(self))
+        quoridor_game::ai::mcts::MctsAiPlayer::receive(self).map_err(|_| Error::CantFindMoveError)
     }
 }
 
@@ -113,7 +116,9 @@ fn main() -> Result<(), Error> {
             for mov in moves.1 {
                 display.show(&board.clone().into())?;
                 std::thread::sleep(std::time::Duration::from_millis(700));
-                board.apply_move(&mov, player);
+                board
+                    .apply_move(&mov, player)
+                    .map_err(|_| Error::InvalidMoveAttempted)?;
                 player = player.other();
             }
             display.show(&board.clone().into())?;
@@ -141,7 +146,9 @@ fn main() -> Result<(), Error> {
                 todo!();
             }
 
-            board.apply_move(&candidate, iam);
+            board
+                .apply_move(&candidate, iam)
+                .map_err(|_| Error::InvalidMoveAttempted)?;
 
             tcp.send(&candidate)?;
         } else {
@@ -150,7 +157,9 @@ fn main() -> Result<(), Error> {
                 todo!();
             }
 
-            board.apply_move(&candidate, current_player);
+            board
+                .apply_move(&candidate, current_player)
+                .map_err(|_| Error::InvalidMoveAttempted)?;
         }
         current_player = current_player.other();
     }

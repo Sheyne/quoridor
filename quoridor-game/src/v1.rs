@@ -65,15 +65,21 @@ impl Board for BoardV1 {
         (loc.0 as u8, loc.1 as u8)
     }
 
-    fn move_token(&mut self, player: Player, direction: Direction) {
+    fn move_token(&mut self, player: Player, direction: Direction) -> Result<(), ()> {
         let loc = self.location(&player);
         let loc = (loc.0 as u8, loc.1 as u8);
         if let Some(new_loc) = direction.shift(loc) {
             *self.location_mut(&player) = new_loc;
         }
+        Ok(())
     }
 
-    fn add_wall(&mut self, player: Player, location: (u8, u8), orientation: Orientation) {
+    fn add_wall(
+        &mut self,
+        player: Player,
+        location: (u8, u8),
+        orientation: Orientation,
+    ) -> Result<(), ()> {
         match player {
             Player::Player1 => self.player1_walls -= 1,
             Player::Player2 => self.player2_walls -= 1,
@@ -91,6 +97,7 @@ impl Board for BoardV1 {
                 self.cell_mut(&(location.0, location.1 + 1)).right = WallState::Wall;
             }
         }
+        Ok(())
     }
 
     fn is_legal(&self, player: Player, candidate_move: &Move) -> bool {
@@ -121,7 +128,9 @@ impl Board for BoardV1 {
                     };
 
                 let mut hypo = self.clone();
-                hypo.add_wall(player, *location, *orientation);
+                if hypo.add_wall(player, *location, *orientation).is_err() {
+                    return false;
+                }
 
                 unfilled
                     && hypo.distance_to_goal(Player::Player1).is_some()

@@ -23,22 +23,23 @@ impl Orientation {
 pub trait Board {
     fn empty() -> Self;
 
-    fn add_wall(&mut self, player: Player, location: (u8, u8), orientation: Orientation);
-    fn move_token(&mut self, player: Player, direction: Direction);
+    fn add_wall(
+        &mut self,
+        player: Player,
+        location: (u8, u8),
+        orientation: Orientation,
+    ) -> Result<(), ()>;
+    fn move_token(&mut self, player: Player, direction: Direction) -> Result<(), ()>;
     fn is_legal(&self, player: Player, candidate_move: &Move) -> bool;
     fn get_wall_state(&self, location: (u8, u8)) -> Option<Orientation>;
     fn available_walls(&self, player: Player) -> u8;
-    fn apply_move(&mut self, candidate: &Move, player: Player) {
+    fn apply_move(&mut self, candidate: &Move, player: Player) -> Result<(), ()> {
         match candidate {
             Move::AddWall {
                 location,
                 orientation,
-            } => {
-                self.add_wall(player, *location, *orientation);
-            }
-            Move::MoveToken(d) => {
-                self.move_token(player, *d);
-            }
+            } => self.add_wall(player, *location, *orientation),
+            Move::MoveToken(d) => self.move_token(player, *d),
         }
     }
 

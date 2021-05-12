@@ -101,6 +101,14 @@ impl Display {
     pub fn new() -> Result<Self, DisplayError> {
         execute!(stdout(), EnterAlternateScreen)?;
         enable_raw_mode()?;
+        let default_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(move |info| {
+            disable_raw_mode().unwrap();
+            execute!(stdout(), LeaveAlternateScreen).unwrap();
+
+            default_hook(info);
+        }));
+
         Ok(Self)
     }
 

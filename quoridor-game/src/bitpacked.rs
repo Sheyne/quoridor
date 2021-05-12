@@ -49,25 +49,33 @@ impl Board for BoardV2 {
         }
     }
 
-    fn add_wall(&mut self, player: Player, location: (u8, u8), orientation: crate::Orientation) {
-        let bitset = match orientation {
-            crate::Orientation::Horizontal => &mut self.horizontal,
-            crate::Orientation::Vertical => &mut self.vertical,
-        };
+    fn add_wall(
+        &mut self,
+        player: Player,
+        location: (u8, u8),
+        orientation: crate::Orientation,
+    ) -> Result<(), ()> {
+        BoardV2::bit_mask(location)
+            .map(|mask| {
+                let bitset = match orientation {
+                    crate::Orientation::Horizontal => &mut self.horizontal,
+                    crate::Orientation::Vertical => &mut self.vertical,
+                };
 
-        if let Some(mask) = BoardV2::bit_mask(location) {
-            *bitset |= mask;
-            match player {
-                Player::Player1 => self.player1_walls -= 1,
-                Player::Player2 => self.player2_walls -= 1,
-            }
-        }
+                *bitset |= mask;
+                match player {
+                    Player::Player1 => self.player1_walls -= 1,
+                    Player::Player2 => self.player2_walls -= 1,
+                }
+            })
+            .ok_or(())
     }
 
-    fn move_token(&mut self, player: Player, direction: crate::Direction) {
-        if let Some(location) = direction.shift(self.player_location(player)) {
-            self.set_player_location(player, location);
-        }
+    fn move_token(&mut self, player: Player, direction: crate::Direction) -> Result<(), ()> {
+        self.set_player_location(
+            player,
+            direction.shift(self.player_location(player)).ok_or(())?,
+        )
     }
 
     fn get_wall_state(&self, location: (u8, u8)) -> Option<Orientation> {
@@ -137,9 +145,8 @@ impl Board for BoardV2 {
                 };
 
                 let mut hypo = self.clone();
-                hypo.add_wall(player, *location, *orientation);
-
-                unfilled
+                hypo.add_wall(player, *location, *orientation).is_ok()
+                    && unfilled
                     && hypo.distance_to_goal(Player::Player1).is_some()
                     && hypo.distance_to_goal(Player::Player2).is_some()
             }
@@ -236,11 +243,12 @@ impl BoardV2 {
         }
     }
 
-    fn set_player_location(&mut self, player: Player, pos: (u8, u8)) {
+    fn set_player_location(&mut self, player: Player, pos: (u8, u8)) -> Result<(), ()> {
         *match player {
             super::Player::Player1 => &mut self.player1_pos,
             super::Player::Player2 => &mut self.player2_pos,
-        } = pos.try_into().unwrap();
+        } = pos.try_into()?;
+        Ok(())
     }
 
     fn is_passible_down(&self, pos: (u8, u8)) -> bool {

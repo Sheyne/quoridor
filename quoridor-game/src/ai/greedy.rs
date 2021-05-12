@@ -17,16 +17,17 @@ impl<B: Board + Clone + Hash + Eq> GreedyAiPlayer<B> {
 }
 
 impl<B: Board + Clone + Hash + Eq> GreedyAiPlayer<B> {
-    pub fn send(&mut self, m: &Move) {
-        self.board.apply_move(m, self.current_player);
+    pub fn send(&mut self, m: &Move) -> Result<(), ()> {
+        self.board.apply_move(m, self.current_player)?;
         self.current_player = self.current_player.other();
+        Ok(())
     }
 
-    pub fn receive(&mut self) -> Move {
-        let m = best_move(self.board.clone(), self.current_player);
-        self.board.apply_move(&m, self.current_player);
+    pub fn receive(&mut self) -> Result<Move, ()> {
+        let m = best_move(self.board.clone(), self.current_player)?;
+        self.board.apply_move(&m, self.current_player)?;
         self.current_player = self.current_player.other();
-        m
+        Ok(m)
     }
 }
 
@@ -55,7 +56,7 @@ fn all_moves() -> impl Iterator<Item = Move> {
     shifts.chain(adds_walls)
 }
 
-fn best_move<B: Board + Clone + Hash + Eq>(board: B, player: Player) -> Move {
+fn best_move<B: Board + Clone + Hash + Eq>(board: B, player: Player) -> Result<Move, ()> {
     // let mut hashmap = FxHashMap::<(Player, B), Option<i8>>::default();
 
     // fn find_all_moves<B: Board + Clone + Hash + Eq>(
@@ -84,10 +85,10 @@ fn best_move<B: Board + Clone + Hash + Eq>(board: B, player: Player) -> Move {
 
     let legal_moves = all_moves().filter(|mov| board.is_legal(player, mov));
 
-    let boards = legal_moves.map(|mov| {
+    let boards = legal_moves.filter_map(|mov| {
         let mut nb = board.clone();
-        nb.apply_move(&mov, player);
-        (mov, nb)
+        nb.apply_move(&mov, player).ok()?;
+        Some((mov, nb))
     });
 
     let scores = boards.map(|(mov, board)| {
@@ -98,5 +99,8 @@ fn best_move<B: Board + Clone + Hash + Eq>(board: B, player: Player) -> Move {
         )
     });
 
-    scores.max_by_key(|(_, score)| *score).unwrap().0
+    scores
+        .max_by_key(|(_, score)| *score)
+        .map(|x| x.0)
+        .ok_or(())
 }

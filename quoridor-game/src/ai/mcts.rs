@@ -4,6 +4,7 @@ use mcts::transposition_table::*;
 use mcts::tree_policy::*;
 use mcts::*;
 use std::{
+    fmt::Debug,
     hash::{Hash, Hasher},
     marker::PhantomData,
 };
@@ -30,8 +31,12 @@ impl Evaluator<QuoridorSpec<BoardV2>> for QuoridorEvaluator {
         moves: &Vec<Move>,
         _: Option<SearchHandle<QuoridorSpec<BoardV2>>>,
     ) -> (Vec<()>, i8) {
-        let score = state.board.distance_to_goal(Player::Player2).unwrap() as i8
-            - state.board.distance_to_goal(Player::Player1).unwrap() as i8;
+        let score = state.board.distance_to_goal(Player::Player2).unwrap_or(100) as i8
+            - state
+                .board
+                .distance_to_goal(Player::Player1)
+                .map(|x| x as i8)
+                .unwrap_or(-100);
 
         (vec![(); moves.len()], score)
     }
@@ -95,32 +100,41 @@ impl MctsAiPlayer {
                 QuoridorSpec(PhantomData::default()),
                 QuoridorEvaluator,
                 UCTPolicy::new(0.2),
-                ApproxTable::new(1024 * 16),
+                ApproxTable::new(1024),
             ),
         }
     }
 }
 
 impl MctsAiPlayer {
-    pub fn send(&mut self, m: &Move) {
-        self.state.board.apply_move(m, self.state.current_player);
+    pub fn send(&mut self, m: &Move) -> Result<(), ()> {
+        self.state.board.apply_move(m, self.state.current_player)?;
         self.state.current_player = self.state.current_player.other();
+        Ok(())
     }
 
-    pub fn receive(&mut self) -> Move {
-        let m = self.mcts.best_move().unwrap();
-        self.state.board.apply_move(&m, self.state.current_player);
+    pub fn receive(&mut self) -> Result<Move, ()> {
+        self.mcts = MCTSManager::new(
+            self.state.clone(),
+            QuoridorSpec(PhantomData::default()),
+            QuoridorEvaluator,
+            UCTPolicy::new(0.2),
+            ApproxTable::new(1024),
+        );
+        self.mcts.playout_n_parallel(50000, 32); // 10000 playouts, 4 search threads
+        let m = self.mcts.best_move().ok_or(())?;
+        self.state.board.apply_move(&m, self.state.current_player)?;
         self.state.current_player = self.state.current_player.other();
-        m
+        Ok(m)
     }
 
     pub fn debug(&mut self) {
-        self.mcts.playout_n_parallel(10000, 16); // 10000 playouts, 4 search threads
+        self.mcts.playout_n_parallel(1000000, 16); // 10000 playouts, 4 search threads
         dbg!(self.mcts.principal_variation(100));
     }
 }
 
-impl<B: Board + Clone + Hash + Eq + Clone> GameState for QuoridorState<B> {
+impl<B: Board + Clone + Hash + Eq + Clone + Debug> GameState for QuoridorState<B> {
     type Move = Move;
     type Player = Player;
     type MoveList = Vec<Move>;
@@ -145,7 +159,9 @@ impl<B: Board + Clone + Hash + Eq + Clone> GameState for QuoridorState<B> {
             .collect()
     }
     fn make_move(&mut self, mov: &Self::Move) {
-        self.board.apply_move(mov, self.current_player);
+        self.board
+            .apply_move(mov, self.current_player)
+            .expect(&format!("Applying move failed {:?} {:?}", mov, &self.board));
         self.current_player = self.current_player.other();
     }
 }

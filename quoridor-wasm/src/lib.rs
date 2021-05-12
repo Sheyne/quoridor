@@ -103,10 +103,10 @@ impl Game {
 
 fn apply_move(game: &mut Game, mov: Move) -> bool {
     if game.board.is_legal(game.current_player, &mov) {
-        game.board.apply_move(&mov, game.current_player);
-        game.current_player = game.current_player.other();
-        true
-    } else {
-        false
+        if game.board.apply_move(&mov, game.current_player).is_ok() {
+            game.current_player = game.current_player.other();
+            return true;
+        }
     }
+    false
 }
