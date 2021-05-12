@@ -154,7 +154,7 @@ impl MctsAiPlayer {
                     UCTPolicy::new(0.2),
                     ApproxTable::new(1024),
                 );
-                self.mcts.playout_n_parallel(100000, 8); // 10000 playouts, 4 search threads
+                self.mcts.playout_n_parallel(100000, 16); // 10000 playouts, 4 search threads
                 let m = self.mcts.best_move().ok_or(())?;
                 board.apply_move(&m, *current_player)?;
                 *current_player = current_player.other();
