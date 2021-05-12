@@ -152,14 +152,34 @@ fn main() -> Result<(), Error> {
 
             tcp.send(&candidate)?;
         } else {
-            let candidate = tcp.receive()?;
-            if !board.is_legal(current_player, &candidate) {
-                todo!();
-            }
+            let candidate = tcp.receive();
+            match candidate {
+                Ok(candidate) => {
+                    if !board.is_legal(current_player, &candidate) {
+                        todo!();
+                    }
 
-            board
-                .apply_move(&candidate, current_player)
-                .map_err(|_| Error::InvalidMoveAttempted)?;
+                    board
+                        .apply_move(&candidate, current_player)
+                        .map_err(|_| Error::InvalidMoveAttempted)?;
+                }
+                Err(Error::CantFindMoveError) => {
+                    drop(display);
+                    let d1 = board.distance_to_goal(Player::Player1).unwrap();
+                    let d2 = board.distance_to_goal(Player::Player2).unwrap();
+                    let winner = if d1 == d2 {
+                        current_player.other()
+                    } else if d1 < d2 {
+                        Player::Player1
+                    } else {
+                        Player::Player2
+                    };
+
+                    println!("{:?} wins!", winner);
+                    return Ok(())
+                }
+                Err(x) => return Err(x),
+            }
         }
         current_player = current_player.other();
     }
