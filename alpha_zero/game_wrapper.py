@@ -97,38 +97,7 @@ class QuoridorGame:
 
     def __str__(self):
         h, v, p1l, p2l, p1w, p2w = map(int, self.as_str().split(" "))
-        p1l = p1l - 1
-        p2l = p2l - 1
-        p1l = p1l % 9, p1l // 9
-        p2l = p2l % 9, p2l // 9
-        g = [[" "] * (9 + 8) for _ in range(9 + 8)]
-        g[p1l[1] * 2][p1l[0] * 2] = "1"
-        g[p2l[1] * 2][p2l[0] * 2] = "2"
-
-        def is_set(x, y, n):
-            return 1 << (y + x * 8) & n != 0
-
-        for y in range(8):
-            for x in range(8):
-                g[1 + 2*y][2*x] = "-"
-                g[1 + 2*y][1 + 2*x] = "+"
-                g[1 + 2*y][2 + 2*x] = "-"
-                g[2*y][1 + 2*x] = "|"
-                g[1 + 2*y][1 + 2*x] = "+"
-                g[2 + 2*y][1 + 2*x] = "|"
-
-        for y in range(8):
-            for x in range(8):
-                if is_set(x, y, h):
-                    g[1 + 2*y][2*x] = "#"
-                    g[1 + 2*y][1 + 2*x] = "#"
-                    g[1 + 2*y][2 + 2*x] = "#"
-                if is_set(x, y, v):
-                    g[2*y][1 + 2*x] = "#"
-                    g[1 + 2*y][1 + 2*x] = "#"
-                    g[2 + 2*y][1 + 2*x] = "#"
-
-        return "\n".join("".join(row) for row in g)
+        return board_from_numbers(h, v, p1l, p2l, p1w, p2w)
 
     @property
     def s(self):
@@ -137,6 +106,40 @@ class QuoridorGame:
     @property
     def current_player(self):
         return 1 if self.rust_game.current_player() == 1 else -1
+
+def board_from_numbers(h, v, p1l, p2l, p1w, p2w):
+    p1l = p1l - 1
+    p2l = p2l - 1
+    p1l = p1l % 9, p1l // 9
+    p2l = p2l % 9, p2l // 9
+    g = [[" "] * (9 + 8) for _ in range(9 + 8)]
+    g[p1l[1] * 2][p1l[0] * 2] = "1"
+    g[p2l[1] * 2][p2l[0] * 2] = "2"
+
+    def is_set(x, y, n):
+        return 1 << (y + x * 8) & n != 0
+
+    for y in range(8):
+        for x in range(8):
+            g[1 + 2*y][2*x] = "-"
+            g[1 + 2*y][1 + 2*x] = "+"
+            g[1 + 2*y][2 + 2*x] = "-"
+            g[2*y][1 + 2*x] = "|"
+            g[1 + 2*y][1 + 2*x] = "+"
+            g[2 + 2*y][1 + 2*x] = "|"
+
+    for y in range(8):
+        for x in range(8):
+            if is_set(x, y, h):
+                g[1 + 2*y][2*x] = "#"
+                g[1 + 2*y][1 + 2*x] = "#"
+                g[1 + 2*y][2 + 2*x] = "#"
+            if is_set(x, y, v):
+                g[2*y][1 + 2*x] = "#"
+                g[1 + 2*y][1 + 2*x] = "#"
+                g[2 + 2*y][1 + 2*x] = "#"
+
+    return "\n".join("".join(row) for row in g)
 
 if __name__ == "__main__":
     g = QuoridorGame()

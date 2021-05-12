@@ -10,9 +10,9 @@ use std::{
 };
 
 #[derive(Clone, Debug)]
-struct QuoridorState<B: Board + Clone> {
-    board: B,
-    current_player: Player,
+enum QuoridorState<B: Board + Clone> {
+    Dirty { offender: Player },
+    Clean { board: B, current_player: Player },
 }
 
 pub struct MctsAiPlayer {
@@ -31,13 +31,22 @@ impl Evaluator<QuoridorSpec<BoardV2>> for QuoridorEvaluator {
         moves: &Vec<Move>,
         _: Option<SearchHandle<QuoridorSpec<BoardV2>>>,
     ) -> (Vec<()>, i8) {
-        let score = state.board.distance_to_goal(Player::Player2).unwrap_or(100) as i8
-            - state
-                .board
-                .distance_to_goal(Player::Player1)
-                .map(|x| x as i8)
-                .unwrap_or(-100);
-
+        let score = match state {
+            QuoridorState::Dirty { offender } => match offender {
+                Player::Player1 => -100,
+                Player::Player2 => 100,
+            },
+            QuoridorState::Clean {
+                board,
+                current_player: _,
+            } => {
+                board.distance_to_goal(Player::Player2).unwrap_or(100) as i8
+                    - board
+                        .distance_to_goal(Player::Player1)
+                        .map(|x| x as i8)
+                        .unwrap_or(-100)
+            }
+        };
         (vec![(); moves.len()], score)
     }
     fn interpret_evaluation_for_player(&self, evaln: &i8, player: &Player) -> i64 {
@@ -59,10 +68,18 @@ impl Evaluator<QuoridorSpec<BoardV2>> for QuoridorEvaluator {
 
 impl TranspositionHash for QuoridorState<BoardV2> {
     fn hash(&self) -> u64 {
-        let mut hasher = FxHasher::default();
-        hasher.write_u8(self.current_player as u8);
-        self.board.fx_hash(&mut hasher);
-        hasher.finish()
+        match self {
+            QuoridorState::Dirty { offender: _ } => 0,
+            QuoridorState::Clean {
+                current_player,
+                board,
+            } => {
+                let mut hasher = FxHasher::default();
+                hasher.write_u8(*current_player as u8);
+                board.fx_hash(&mut hasher);
+                hasher.finish()
+            }
+        }
     }
 }
 
@@ -84,7 +101,7 @@ impl MCTS for QuoridorSpec<BoardV2> {
 
 impl<B: Board + Clone + Hash + Eq> QuoridorState<B> {
     pub fn new(board: B) -> Self {
-        Self {
+        Self::Clean {
             board,
             current_player: Player::Player1,
         }
@@ -108,24 +125,43 @@ impl MctsAiPlayer {
 
 impl MctsAiPlayer {
     pub fn send(&mut self, m: &Move) -> Result<(), ()> {
-        self.state.board.apply_move(m, self.state.current_player)?;
-        self.state.current_player = self.state.current_player.other();
-        Ok(())
+        match &mut self.state {
+            QuoridorState::Clean {
+                current_player,
+                board,
+            } => {
+                board.apply_move(m, *current_player)?;
+                *current_player = current_player.other();
+                Ok(())
+            }
+            QuoridorState::Dirty { offender: _ } => Err(()),
+        }
     }
 
     pub fn receive(&mut self) -> Result<Move, ()> {
-        self.mcts = MCTSManager::new(
-            self.state.clone(),
-            QuoridorSpec(PhantomData::default()),
-            QuoridorEvaluator,
-            UCTPolicy::new(0.2),
-            ApproxTable::new(1024),
-        );
-        self.mcts.playout_n_parallel(50000, 32); // 10000 playouts, 4 search threads
-        let m = self.mcts.best_move().ok_or(())?;
-        self.state.board.apply_move(&m, self.state.current_player)?;
-        self.state.current_player = self.state.current_player.other();
-        Ok(m)
+        match &mut self.state {
+            QuoridorState::Clean {
+                current_player,
+                board,
+            } => {
+                self.mcts = MCTSManager::new(
+                    QuoridorState::Clean {
+                        current_player: current_player.clone(),
+                        board: board.clone(),
+                    },
+                    QuoridorSpec(PhantomData::default()),
+                    QuoridorEvaluator,
+                    UCTPolicy::new(0.2),
+                    ApproxTable::new(1024),
+                );
+                self.mcts.playout_n_parallel(50000, 32); // 10000 playouts, 4 search threads
+                let m = self.mcts.best_move().ok_or(())?;
+                board.apply_move(&m, *current_player)?;
+                *current_player = current_player.other();
+                Ok(m)
+            }
+            QuoridorState::Dirty { offender: _ } => Err(()),
+        }
     }
 
     pub fn debug(&mut self) {
@@ -140,29 +176,56 @@ impl<B: Board + Clone + Hash + Eq + Clone + Debug> GameState for QuoridorState<B
     type MoveList = Vec<Move>;
 
     fn current_player(&self) -> Self::Player {
-        self.current_player
+        match self {
+            QuoridorState::Clean {
+                current_player,
+                board: _,
+            } => *current_player,
+            QuoridorState::Dirty { offender } => offender.other(),
+        }
     }
     fn available_moves(&self) -> Vec<Move> {
-        if self.board.player_location(Player::Player1).1 == 8 {
-            return vec![];
+        match self {
+            QuoridorState::Clean {
+                current_player,
+                board,
+            } => {
+                if board.player_location(Player::Player1).1 == 8 {
+                    return vec![];
+                }
+                if board.player_location(Player::Player2).1 == 0 {
+                    return vec![];
+                }
+                if board.available_walls(Player::Player1) == 0
+                    && board.available_walls(Player::Player2) == 0
+                {
+                    return vec![];
+                }
+                all_moves()
+                    .filter(|mov| board.is_legal(*current_player, mov))
+                    .collect()
+            }
+            QuoridorState::Dirty { offender: _ } => {
+                vec![]
+            }
         }
-        if self.board.player_location(Player::Player2).1 == 0 {
-            return vec![];
-        }
-        if self.board.available_walls(Player::Player1) == 0
-            && self.board.available_walls(Player::Player2) == 0
-        {
-            return vec![];
-        }
-        all_moves()
-            .filter(|mov| self.board.is_legal(self.current_player, mov))
-            .collect()
     }
     fn make_move(&mut self, mov: &Self::Move) {
-        self.board
-            .apply_move(mov, self.current_player)
-            .expect(&format!("Applying move failed {:?} {:?}", mov, &self.board));
-        self.current_player = self.current_player.other();
+        match self {
+            QuoridorState::Clean {
+                current_player,
+                board,
+            } => {
+                let move_result = board.apply_move(mov, *current_player);
+                *current_player = current_player.other();
+                if move_result.is_err() {
+                    *self = QuoridorState::Dirty {
+                        offender: *current_player,
+                    };
+                }
+            }
+            QuoridorState::Dirty { offender: _ } => (),
+        }
     }
 }
 
