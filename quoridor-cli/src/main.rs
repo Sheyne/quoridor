@@ -1,8 +1,8 @@
 use clap::{AppSettings, Clap};
 use display::DisplayError;
-use parse_display::FromStr;
-use quoridor_game::ai::greedy::GreedyAiPlayer;
+use parse_display::{Display, FromStr};
 use quoridor_game::ai::mcts::MctsAiPlayer;
+use quoridor_game::ai::{greedy::GreedyAiPlayer, mcts::MctsError};
 use quoridor_game::bitpacked::BoardV2;
 use quoridor_game::*;
 use std::{
@@ -17,6 +17,7 @@ mod replay;
 pub enum Error {
     InvalidMoveAttempted,
     CantFindMoveError,
+    MctsError(MctsError),
     DisplayError(DisplayError),
     TcpError(tcp::GameError),
 }
@@ -68,11 +69,10 @@ impl<B: Board + Clone + Hash + Eq> RemotePlayer for quoridor_game::ai::greedy::G
 
 impl RemotePlayer for quoridor_game::ai::mcts::MctsAiPlayer {
     fn send(&mut self, m: &Move) -> Result<(), Error> {
-        quoridor_game::ai::mcts::MctsAiPlayer::send(self, m)
-            .map_err(|_| Error::InvalidMoveAttempted)
+        quoridor_game::ai::mcts::MctsAiPlayer::send(self, m).map_err(Error::MctsError)
     }
     fn receive(&mut self) -> Result<Move, Error> {
-        quoridor_game::ai::mcts::MctsAiPlayer::receive(self).map_err(|_| Error::CantFindMoveError)
+        quoridor_game::ai::mcts::MctsAiPlayer::receive(self).map_err(Error::MctsError)
     }
 }
 
@@ -86,12 +86,13 @@ struct Opts {
     player2: PlayerKind,
 }
 
-#[derive(Clap, FromStr)]
+#[derive(FromStr, Display, Clone)]
 #[display(style = "kebab-case")]
 enum PlayerKind {
     Keyboard,
     GreedyAi,
-    MctsAi,
+    #[display("mcts-ai-{0}")]
+    MctsAi(u32),
     Replay1,
     #[display("serve-{port}")]
     Serve {
@@ -124,7 +125,7 @@ impl TryFrom<PlayerKind> for PlayerDriver {
             PlayerKind::GreedyAi => {
                 PlayerDriver::RemotePlayer(Box::new(GreedyAiPlayer::new(board)))
             }
-            PlayerKind::MctsAi => PlayerDriver::RemotePlayer(Box::new(MctsAiPlayer::new(board))),
+            PlayerKind::MctsAi(t) => PlayerDriver::RemotePlayer(Box::new(MctsAiPlayer::new(board, t))),
             PlayerKind::Keyboard => PlayerDriver::Keyboard,
             _ => todo!(),
         })
@@ -171,8 +172,8 @@ fn main() -> Result<(), Error> {
     let opts: Opts = Opts::parse();
 
     let mut main = Main {
-        player1: opts.player1.try_into()?,
-        player2: opts.player2.try_into()?,
+        player1: opts.player1.clone().try_into()?,
+        player2: opts.player2.clone().try_into()?,
         display: display::Display::new()?,
         board: BoardV2::empty(),
         candidate: Move::MoveToken(Direction::Down),
@@ -186,7 +187,10 @@ fn main() -> Result<(), Error> {
         let candidate = main.get_move(current_player)?;
 
         if !main.board.is_legal(current_player, &candidate) {
-            todo!();
+            panic!(
+                "{:?} tried to play an illegal move {:?}",
+                current_player, candidate
+            );
         }
 
         main.board
@@ -194,6 +198,26 @@ fn main() -> Result<(), Error> {
             .map_err(|_| Error::InvalidMoveAttempted)?;
 
         main.send_move(current_player.other(), &candidate)?;
+
+        if main.board.player_location(Player::Player1).1 == 8
+            || main.board.player_location(Player::Player2).1 == 0
+        {
+            let winner = if main.board.player_location(Player::Player1).1 == 8 {
+                Player::Player1
+            } else {
+                Player::Player2
+            };
+            drop(main);
+            println!(
+                "{:?} ({}) wins!",
+                winner,
+                match winner {
+                    Player::Player1 => opts.player1,
+                    Player::Player2 => opts.player2,
+                }
+            );
+            return Ok(());
+        }
 
         current_player = current_player.other();
     }

@@ -25,6 +25,7 @@ impl<B: Board + Clone + Hash + Eq> GreedyAiPlayer<B> {
 
     pub fn receive(&mut self) -> Result<Move, ()> {
         let m = best_move(self.board.clone(), self.current_player)?;
+        std::thread::sleep(std::time::Duration::from_millis(500));
         self.board.apply_move(&m, self.current_player)?;
         self.current_player = self.current_player.other();
         Ok(m)
@@ -56,7 +57,7 @@ fn all_moves() -> impl Iterator<Item = Move> {
     shifts.chain(adds_walls)
 }
 
-fn best_move<B: Board + Clone + Hash + Eq>(board: B, player: Player) -> Result<Move, ()> {
+pub fn best_move<B: Board + Clone + Hash + Eq>(board: B, player: Player) -> Result<Move, ()> {
     // let mut hashmap = FxHashMap::<(Player, B), Option<i8>>::default();
 
     // fn find_all_moves<B: Board + Clone + Hash + Eq>(

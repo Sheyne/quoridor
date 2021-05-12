@@ -9,6 +9,8 @@ use std::{
     marker::PhantomData,
 };
 
+use super::greedy;
+
 #[derive(Clone, Debug)]
 enum QuoridorState<B: Board + Clone> {
     Dirty { offender: Player },
@@ -18,6 +20,14 @@ enum QuoridorState<B: Board + Clone> {
 pub struct MctsAiPlayer {
     state: QuoridorState<BoardV2>,
     mcts: MCTSManager<QuoridorSpec<BoardV2>>,
+    think_time: u32,
+}
+
+#[derive(Debug)]
+pub enum MctsError {
+    GreedyError,
+    FoundIllegalMove(Move),
+    InDirtyState,
 }
 
 struct QuoridorEvaluator;
@@ -109,7 +119,7 @@ impl<B: Board + Clone + Hash + Eq> QuoridorState<B> {
 }
 
 impl MctsAiPlayer {
-    pub fn new(board: BoardV2) -> Self {
+    pub fn new(board: BoardV2, think_time: u32) -> Self {
         Self {
             state: QuoridorState::new(board.clone()),
             mcts: MCTSManager::new(
@@ -119,26 +129,29 @@ impl MctsAiPlayer {
                 UCTPolicy::new(0.2),
                 ApproxTable::new(1024),
             ),
+            think_time: think_time
         }
     }
 }
 
 impl MctsAiPlayer {
-    pub fn send(&mut self, m: &Move) -> Result<(), ()> {
+    pub fn send(&mut self, m: &Move) -> Result<(), MctsError> {
         match &mut self.state {
             QuoridorState::Clean {
                 current_player,
                 board,
             } => {
-                board.apply_move(m, *current_player)?;
+                board
+                    .apply_move(m, *current_player)
+                    .map_err(|_| MctsError::FoundIllegalMove(m.clone()))?;
                 *current_player = current_player.other();
                 Ok(())
             }
-            QuoridorState::Dirty { offender: _ } => Err(()),
+            QuoridorState::Dirty { offender: _ } => Err(MctsError::InDirtyState),
         }
     }
 
-    pub fn receive(&mut self) -> Result<Move, ()> {
+    pub fn receive(&mut self) -> Result<Move, MctsError> {
         match &mut self.state {
             QuoridorState::Clean {
                 current_player,
@@ -154,13 +167,22 @@ impl MctsAiPlayer {
                     UCTPolicy::new(0.2),
                     ApproxTable::new(1024),
                 );
-                self.mcts.playout_n_parallel(100000, 16); // 10000 playouts, 4 search threads
-                let m = self.mcts.best_move().ok_or(())?;
-                board.apply_move(&m, *current_player)?;
+                self.mcts.playout_n_parallel(self.think_time, 16); // 10000 playouts, 4 search threads
+                let m = if let Some(m) = self.mcts.best_move() {
+                    m
+                } else {
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    greedy::best_move(board.clone(), *current_player)
+                        .map_err(|_| MctsError::GreedyError)?
+                };
+                board
+                    .apply_move(&m, *current_player)
+                    .map_err(|_| MctsError::FoundIllegalMove(m.clone()))?;
                 *current_player = current_player.other();
+
                 Ok(m)
             }
-            QuoridorState::Dirty { offender: _ } => Err(()),
+            QuoridorState::Dirty { offender: _ } => Err(MctsError::InDirtyState),
         }
     }
 
@@ -202,7 +224,7 @@ impl<B: Board + Clone + Hash + Eq + Clone + Debug> GameState for QuoridorState<B
                     return vec![];
                 }
                 all_moves()
-                    .filter(|mov| board.is_probably_legal(*current_player, mov))
+                    .filter(|mov| board.is_legal(*current_player, mov))
                     .collect()
             }
             QuoridorState::Dirty { offender: _ } => {
