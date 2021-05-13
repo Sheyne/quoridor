@@ -278,7 +278,10 @@ fn display(board: &BoardV1, player_and_move: Option<(&Player, &Move)>) -> Result
         queue!(
             stdout(),
             crossterm::cursor::MoveTo((2 * loc.0) as u16, (2 * loc.1) as u16),
-            Print("X")
+            match player {
+                Player::Player1 => Print("v"),
+                Player::Player2 => Print("^"),
+            }
         )?;
     }
 
@@ -307,13 +310,17 @@ fn display(board: &BoardV1, player_and_move: Option<(&Player, &Move)>) -> Result
         SetForegroundColor(crossterm::style::Color::White),
         crossterm::cursor::MoveTo(0, 18),
         Print(format!(
-            "Player 1 distance: {:?}",
-            board.distance_to_goal(crate::Player::Player1)
+            "1 (v) has {} steps to go",
+            board
+                .distance_to_goal(crate::Player::Player1)
+                .unwrap_or(u8::MAX)
         )),
         crossterm::cursor::MoveTo(0, 19),
         Print(format!(
-            "Player 2 distance: {:?}",
-            board.distance_to_goal(crate::Player::Player2)
+            "2 (^) has {} steps to go",
+            board
+                .distance_to_goal(crate::Player::Player2)
+                .unwrap_or(u8::MAX)
         )),
     )?;
 

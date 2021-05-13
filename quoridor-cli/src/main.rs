@@ -189,7 +189,7 @@ fn main() -> Result<(), Error> {
         if main.display.check_exit() {
             drop(main);
             println!("User requested exit.");
-            return Ok(())
+            return Ok(());
         }
         let candidate = main.get_move(current_player)?;
 

@@ -85,7 +85,10 @@ impl TranspositionHash for QuoridorState<BoardV2> {
                 board,
             } => {
                 let mut hasher = FxHasher::default();
-                hasher.write_u8(*current_player as u8);
+                hasher.write_u8(match current_player {
+                    Player::Player1 => 177,
+                    Player::Player2 => 87,
+                });
                 board.fx_hash(&mut hasher);
                 hasher.finish()
             }
