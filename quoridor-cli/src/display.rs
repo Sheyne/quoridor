@@ -1,6 +1,6 @@
 use super::*;
 use crossterm::{
-    event::{read, Event, KeyCode},
+    event::{poll, read, Event, KeyCode, KeyEvent, KeyModifiers},
     execute, queue,
     style::{Print, SetForegroundColor},
     terminal::{
@@ -10,7 +10,10 @@ use crossterm::{
     ErrorKind,
 };
 use quoridor_game::v1::{BoardV1, Cell, WallState};
-use std::io::{stdout, Write};
+use std::{
+    io::{stdout, Write},
+    time::Duration,
+};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum DisplayWallState {
@@ -193,6 +196,19 @@ impl Display {
         display(board, None)?;
         stdout().flush()?;
         Ok(())
+    }
+
+    pub fn check_exit(&mut self) -> bool {
+        if poll(Duration::from_secs(0)).unwrap_or(false) {
+            if let Ok(Event::Key(KeyEvent {
+                code: KeyCode::Char('c'),
+                modifiers,
+            })) = read()
+            {
+                return modifiers.contains(KeyModifiers::CONTROL);
+            }
+        }
+        false
     }
 }
 

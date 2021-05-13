@@ -129,7 +129,7 @@ impl MctsAiPlayer {
                 UCTPolicy::new(0.2),
                 ApproxTable::new(1024),
             ),
-            think_time: think_time
+            think_time: think_time,
         }
     }
 }

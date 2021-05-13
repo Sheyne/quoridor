@@ -125,7 +125,9 @@ impl TryFrom<PlayerKind> for PlayerDriver {
             PlayerKind::GreedyAi => {
                 PlayerDriver::RemotePlayer(Box::new(GreedyAiPlayer::new(board)))
             }
-            PlayerKind::MctsAi(t) => PlayerDriver::RemotePlayer(Box::new(MctsAiPlayer::new(board, t))),
+            PlayerKind::MctsAi(t) => {
+                PlayerDriver::RemotePlayer(Box::new(MctsAiPlayer::new(board, t)))
+            }
             PlayerKind::Keyboard => PlayerDriver::Keyboard,
             _ => todo!(),
         })
@@ -184,6 +186,11 @@ fn main() -> Result<(), Error> {
     loop {
         main.display.show(&main.board.clone().into())?;
 
+        if main.display.check_exit() {
+            drop(main);
+            println!("User requested exit.");
+            return Ok(())
+        }
         let candidate = main.get_move(current_player)?;
 
         if !main.board.is_legal(current_player, &candidate) {
