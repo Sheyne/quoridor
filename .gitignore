@@ -2,3 +2,8 @@
 *.pyd
 *.pyc
 *.so
+flamegraph.svg
+perf.data
+test_runner/flamegraph.svg
+test_runner/perf.data
+test_runner/perf.data.old
