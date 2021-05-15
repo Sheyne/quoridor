@@ -1,7 +1,7 @@
 use clap::{AppSettings, Clap};
 use display::DisplayError;
 use parse_display::{Display, FromStr};
-use quoridor_game::ai::mcts::MctsAiPlayer;
+use quoridor_game::ai::{greedy, mcts::MctsAiPlayer};
 use quoridor_game::ai::{greedy::GreedyAiPlayer, mcts::MctsError};
 use quoridor_game::bitpacked::BoardV2;
 use quoridor_game::*;
@@ -36,29 +36,22 @@ pub trait RemotePlayer {
     fn receive(&mut self) -> Result<Move, Error>;
 }
 
-struct RubotState<B: Board + Clone> {
-    game: quoridor_game::ai::rubot::QuoridorGame<B>,
-    player1: rubot::Bot<quoridor_game::ai::rubot::QuoridorGame<B>>,
-    player2: rubot::Bot<quoridor_game::ai::rubot::QuoridorGame<B>>,
-}
-
-impl<B: Board + Clone> RemotePlayer for RubotState<B> {
+impl<B: Board + Clone + Eq + Hash> RemotePlayer for quoridor_game::ai::rubot::QuoridorGame<B> {
     fn send(&mut self, m: &Move) -> Result<(), Error> {
-        self.game
-            .apply_move(m)
-            .map_err(|_| Error::InvalidMoveAttempted)
+        self.apply_move(m).map_err(|_| Error::InvalidMoveAttempted)
     }
 
     fn receive(&mut self) -> Result<Move, Error> {
-        let mov = match self.game.current_player() {
-            Player::Player1 => &mut self.player1,
-            Player::Player2 => &mut self.player2,
-        }
-        .select(&self.game, std::time::Duration::from_secs(1))
-        .ok_or(Error::CantFindMoveError)?;
+        let mov = if let Some(mov) =
+            rubot::Bot::new(self.current_player()).select(self, std::time::Duration::from_secs(1))
+        {
+            mov
+        } else {
+            greedy::best_move(self.board().clone(), self.current_player())
+                .map_err(|_| Error::CantFindMoveError)?
+        };
 
-        self.game
-            .apply_move(&mov)
+        self.apply_move(&mov)
             .map_err(|_| Error::InvalidMoveAttempted)?;
 
         Ok(mov)
@@ -143,11 +136,11 @@ impl TryFrom<PlayerKind> for PlayerDriver {
             PlayerKind::GreedyAi => {
                 PlayerDriver::RemotePlayer(Box::new(GreedyAiPlayer::new(board)))
             }
-            PlayerKind::Rubot => PlayerDriver::RemotePlayer(Box::new(RubotState {
-                game: quoridor_game::ai::rubot::QuoridorGame::<BoardV2>::new(),
-                player1: rubot::Bot::new(Player::Player1),
-                player2: rubot::Bot::new(Player::Player2),
-            })),
+            PlayerKind::Rubot => {
+                PlayerDriver::RemotePlayer(Box::new(quoridor_game::ai::rubot::QuoridorGame::<
+                    BoardV2,
+                >::new()))
+            }
             PlayerKind::MctsAi(t) => {
                 PlayerDriver::RemotePlayer(Box::new(MctsAiPlayer::new(board, t)))
             }

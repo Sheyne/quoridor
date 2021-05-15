@@ -21,19 +21,31 @@ impl<B: Board> QuoridorGame<B> {
     pub fn current_player(&self) -> Player {
         self.current_player
     }
+    pub fn board(&self) -> &B {
+        &self.board
+    }
 }
 
 impl<B: Board + Clone> rubot::Game for QuoridorGame<B> {
     type Player = Player;
     type Action = Move;
-    /// did you choose a 10?
     type Fitness = i8;
     type Actions = Vec<Move>;
 
     fn actions(&self, player: Self::Player) -> (bool, Self::Actions) {
         (
             player == self.current_player,
-            self.board.legal_moves(self.current_player),
+            if self.board.player_location(Player::Player1).1 == 8 {
+                vec![]
+            } else if self.board.player_location(Player::Player2).1 == 0 {
+                vec![]
+            } else if self.board.available_walls(Player::Player1) == 0
+                && self.board.available_walls(Player::Player2) == 0
+            {
+                vec![]
+            } else {
+                self.board.legal_moves(self.current_player)
+            },
         )
     }
 
@@ -42,7 +54,15 @@ impl<B: Board + Clone> rubot::Game for QuoridorGame<B> {
         self.board
             .distance_to_goal(player.other())
             .zip(self.board.distance_to_goal(player))
-            .map(|(them, me)| them as i8 - me as i8)
+            .map(|(them, me)| {
+                if them < 2 && player.other() == self.current_player {
+                    -100
+                } else if me < 2 && player == self.current_player {
+                    100
+                } else {
+                    them as i8 - me as i8
+                }
+            })
             .unwrap_or(100)
     }
 }
