@@ -19,7 +19,7 @@
             "program": "${workspaceRoot}/target/debug/quoridor-cli",
             "args": [
                 "keyboard",
-                "mcts-ai"
+                "mcts-ai-3000"
             ],
         }
     ]

@@ -49,51 +49,56 @@ pub trait Board {
     fn player_location(&self, player: Player) -> (u8, u8);
 
     fn distance_to_goal(&self, player: Player) -> Option<u8> {
-        let (x, y) = self.player_location(player);
-        let initial = (x as u8, y as u8);
-        fn p1_heuristic((_, y): &(u8, u8)) -> u8 {
-            8 - *y
-        }
-        fn p2_heuristic((_, y): &(u8, u8)) -> u8 {
-            *y
-        }
+        use std::cmp::Reverse;
+        use std::collections::BinaryHeap;
 
-        let heuristic = match player {
-            Player::Player1 => p1_heuristic,
-            Player::Player2 => p2_heuristic,
+        fn p1_d2g((_, y): (u8, u8)) -> u8 {
+            8 - y
+        }
+        fn p2_d2g((_, y): (u8, u8)) -> u8 {
+            y
+        }
+        let d2g = match player {
+            Player::Player1 => p1_d2g,
+            Player::Player2 => p2_d2g,
         };
 
-        pathfinding::prelude::astar(
-            &initial,
-            |p| neighbors(self, *p).map(|p| (p, 1)),
-            heuristic,
-            |p| heuristic(p) == 0,
-        )
-        .map(|(p, _)| p.len() as u8)
+        let mut costs = [[0xffu8; 9]; 9];
+        let mut heap = BinaryHeap::with_capacity(81);
+
+        let starting_loc = self.player_location(player);
+        costs[starting_loc.0 as usize][starting_loc.1 as usize] = 0;
+        heap.push(Reverse((d2g(starting_loc), starting_loc)));
+
+        while let Some(Reverse((_, loc))) = heap.pop() {
+            let neighbors = [
+                Direction::Down,
+                Direction::Up,
+                Direction::Left,
+                Direction::Right,
+            ]
+            .iter()
+            .filter(|dir| self.is_passible(loc, **dir))
+            .map(|x| x.shift(loc))
+            .filter_map(|x| x);
+
+            let cost = costs[loc.0 as usize][loc.1 as usize] + 1;
+            for neighbor in neighbors {
+                if d2g(neighbor) == 0 {
+                    return Some(cost);
+                }
+                if costs[neighbor.0 as usize][neighbor.1 as usize] != 0xff {
+                    continue;
+                }
+                costs[neighbor.0 as usize][neighbor.1 as usize] = cost;
+                heap.push(Reverse((cost + d2g(neighbor), neighbor)));
+            }
+        }
+
+        None
     }
 
     fn is_passible(&self, location: (u8, u8), direction: Direction) -> bool;
-}
-
-fn neighbors<'a, B: Board + ?Sized>(
-    board: &'a B,
-    (x, y): (u8, u8),
-) -> impl Iterator<Item = (u8, u8)> + 'a {
-    [
-        Direction::Up,
-        Direction::Down,
-        Direction::Left,
-        Direction::Right,
-    ]
-    .iter()
-    .map(|x| *x)
-    .filter(move |d| board.is_passible((x, y), *d))
-    .map(move |d| match d {
-        Direction::Right => (x + 1, y),
-        Direction::Left => (x - 1, y),
-        Direction::Up => (x, y - 1),
-        Direction::Down => (x, y + 1),
-    })
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]

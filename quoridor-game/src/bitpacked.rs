@@ -205,10 +205,11 @@ impl Board for BoardV2 {
                 };
 
                 let mut hypo = self.clone();
-                hypo.add_wall(player, *location, *orientation).is_ok()
-                    && unfilled
-                    && hypo.distance_to_goal(Player::Player1).is_some()
-                    && hypo.distance_to_goal(Player::Player2).is_some()
+                let added_wall = hypo.add_wall(player, *location, *orientation).is_ok();
+                let p1_can_exit = hypo.distance_to_goal(Player::Player1).is_some();
+                let p2_can_exit = hypo.distance_to_goal(Player::Player2).is_some();
+
+                added_wall && unfilled && p1_can_exit && p2_can_exit
             }
             Move::MoveToken(direction) => {
                 self.is_passible(self.player_location(player), *direction)
@@ -337,6 +338,61 @@ impl BoardV2 {
     }
 }
 
+pub fn can_reach_goal_v2(board: &impl Board, player: Player) -> bool {
+    let y_range = match player {
+        Player::Player1 => [8u8, 7, 6, 5, 4, 3, 2, 1, 0],
+        Player::Player2 => [0, 1, 2, 3, 4, 5, 6, 7, 8u8],
+    };
+
+    let goal_y = match player {
+        Player::Player1 => 8u8,
+        Player::Player2 => 0,
+    };
+
+    let mut hit_map = [[false; 9]; 9];
+    let mut solved_map = [[false; 9]; 9];
+    let (player_x, player_y) = board.player_location(player);
+    hit_map[player_y as usize][player_x as usize] = true;
+
+    'outer: loop {
+        for y in &y_range {
+            let y = *y;
+            for x in 0..9u8 {
+                if hit_map[y as usize][x as usize] && !solved_map[y as usize][x as usize] {
+                    solved_map[y as usize][x as usize] = true;
+                    let directions = [
+                        Direction::Down,
+                        Direction::Up,
+                        Direction::Left,
+                        Direction::Right,
+                    ]
+                    .iter();
+
+                    let mut found_one = false;
+                    for direction in directions {
+                        let direction = *direction;
+                        if let Some((nx, ny)) = direction.shift((x, y)) {
+                            if !hit_map[ny as usize][nx as usize] {
+                                if board.is_passible((x, y), direction) {
+                                    if ny == goal_y {
+                                        return true;
+                                    }
+                                    hit_map[ny as usize][nx as usize] = true;
+                                    found_one = true;
+                                }
+                            }
+                        }
+                    }
+                    if found_one {
+                        continue 'outer;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+}
+
 impl From<Position> for (u8, u8) {
     fn from(p: Position) -> Self {
         let Position(p) = p;
@@ -404,6 +460,26 @@ impl Position {
 mod tests {
     use super::*;
     use crate::*;
+
+    #[test]
+    fn can_reach_goal_works() {
+        let board = BoardV2 {
+            horizontal: 18015223143202816,
+            vertical: 2147483648,
+            player1_pos: Position(23.try_into().unwrap()),
+            player2_pos: Position(68.try_into().unwrap()),
+            player1_walls: 8,
+            player2_walls: 8,
+        };
+
+        board.is_legal(
+            Player::Player1,
+            &Move::AddWall {
+                location: (2, 2),
+                orientation: Orientation::Horizontal,
+            },
+        );
+    }
 
     #[test]
     fn cant_create_overlapping_walls() {

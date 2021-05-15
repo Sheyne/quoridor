@@ -12,7 +12,7 @@ use std::{
 use super::greedy;
 
 #[derive(Clone, Debug)]
-enum QuoridorState<B: Board + Clone> {
+pub enum QuoridorState<B: Board + Clone> {
     Dirty { offender: Player },
     Clean { board: B, current_player: Player },
 }
@@ -168,13 +168,13 @@ impl MctsAiPlayer {
                     QuoridorSpec(PhantomData::default()),
                     QuoridorEvaluator,
                     UCTPolicy::new(0.2),
-                    ApproxTable::new(1024),
+                    ApproxTable::new(4096),
                 );
                 self.mcts.playout_n_parallel(self.think_time, 16); // 10000 playouts, 4 search threads
                 let m = if let Some(m) = self.mcts.best_move() {
                     m
                 } else {
-                    std::thread::sleep(std::time::Duration::from_millis(500));
+                    std::thread::sleep(std::time::Duration::from_millis(100));
                     greedy::best_move(board.clone(), *current_player)
                         .map_err(|_| MctsError::GreedyError)?
                 };

@@ -1,5 +1,5 @@
 [workspace]
-default-members = ["quoridor-cli"]
+default-members = ["quoridor-cli", "quoridor-game"]
 members = [
     "quoridor-cli",
     "quoridor-game",
@@ -7,3 +7,6 @@ members = [
     "quoridor-python",
     "test_runner"
 ]
+
+[profile.release]
+debug = 1
