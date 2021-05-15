@@ -11,8 +11,6 @@ use std::{
 };
 use tcp::GameError;
 
-mod replay;
-
 #[derive(Debug)]
 pub enum Error {
     InvalidMoveAttempted,
@@ -38,12 +36,32 @@ pub trait RemotePlayer {
     fn receive(&mut self) -> Result<Move, Error>;
 }
 
-impl RemotePlayer for replay::Replay {
-    fn send(&mut self, _m: &Move) -> Result<(), Error> {
-        Ok(())
+struct RubotState<B: Board + Clone> {
+    game: quoridor_game::ai::rubot::QuoridorGame<B>,
+    player1: rubot::Bot<quoridor_game::ai::rubot::QuoridorGame<B>>,
+    player2: rubot::Bot<quoridor_game::ai::rubot::QuoridorGame<B>>,
+}
+
+impl<B: Board + Clone> RemotePlayer for RubotState<B> {
+    fn send(&mut self, m: &Move) -> Result<(), Error> {
+        self.game
+            .apply_move(m)
+            .map_err(|_| Error::InvalidMoveAttempted)
     }
+
     fn receive(&mut self) -> Result<Move, Error> {
-        Ok(self.next())
+        let mov = match self.game.current_player() {
+            Player::Player1 => &mut self.player1,
+            Player::Player2 => &mut self.player2,
+        }
+        .select(&self.game, std::time::Duration::from_secs(1))
+        .ok_or(Error::CantFindMoveError)?;
+
+        self.game
+            .apply_move(&mov)
+            .map_err(|_| Error::InvalidMoveAttempted)?;
+
+        Ok(mov)
     }
 }
 
@@ -91,9 +109,9 @@ struct Opts {
 enum PlayerKind {
     Keyboard,
     GreedyAi,
+    Rubot,
     #[display("mcts-ai-{0}")]
     MctsAi(u32),
-    Replay1,
     #[display("serve-{port}")]
     Serve {
         port: u16,
@@ -125,11 +143,15 @@ impl TryFrom<PlayerKind> for PlayerDriver {
             PlayerKind::GreedyAi => {
                 PlayerDriver::RemotePlayer(Box::new(GreedyAiPlayer::new(board)))
             }
+            PlayerKind::Rubot => PlayerDriver::RemotePlayer(Box::new(RubotState {
+                game: quoridor_game::ai::rubot::QuoridorGame::<BoardV2>::new(),
+                player1: rubot::Bot::new(Player::Player1),
+                player2: rubot::Bot::new(Player::Player2),
+            })),
             PlayerKind::MctsAi(t) => {
                 PlayerDriver::RemotePlayer(Box::new(MctsAiPlayer::new(board, t)))
             }
             PlayerKind::Keyboard => PlayerDriver::Keyboard,
-            _ => todo!(),
         })
     }
 }

@@ -1,4 +1,4 @@
-use crate::{bitpacked::BoardV2, Board, Direction, Move, Orientation, Player};
+use crate::{bitpacked::BoardV2, Board, Move, Player};
 use fxhash::FxHasher;
 use mcts::transposition_table::*;
 use mcts::tree_policy::*;
@@ -226,9 +226,7 @@ impl<B: Board + Clone + Hash + Eq + Clone + Debug> GameState for QuoridorState<B
                 {
                     return vec![];
                 }
-                all_moves()
-                    .filter(|mov| board.is_legal(*current_player, mov))
-                    .collect()
+                board.legal_moves(*current_player)
             }
             QuoridorState::Dirty { offender: _ } => {
                 vec![]
@@ -252,29 +250,4 @@ impl<B: Board + Clone + Hash + Eq + Clone + Debug> GameState for QuoridorState<B
             QuoridorState::Dirty { offender: _ } => (),
         }
     }
-}
-
-fn all_moves() -> impl Iterator<Item = Move> {
-    let adds_walls = [Orientation::Horizontal, Orientation::Vertical]
-        .iter()
-        .map(|x| *x)
-        .flat_map(|o| {
-            (0..8).flat_map(move |y| {
-                (0..8).map(move |x| Move::AddWall {
-                    orientation: o,
-                    location: (x, y),
-                })
-            })
-        });
-
-    let shifts = [
-        Direction::Up,
-        Direction::Down,
-        Direction::Left,
-        Direction::Right,
-    ]
-    .iter()
-    .map(|x| Move::MoveToken(*x));
-
-    shifts.chain(adds_walls)
 }

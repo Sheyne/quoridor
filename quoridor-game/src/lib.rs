@@ -99,6 +99,37 @@ pub trait Board {
     }
 
     fn is_passible(&self, location: (u8, u8), direction: Direction) -> bool;
+
+    fn legal_moves(&self, player: Player) -> Vec<Move> {
+        all_moves()
+            .filter(|mov| self.is_legal(player, mov))
+            .collect()
+    }
+}
+
+fn all_moves() -> impl Iterator<Item = Move> {
+    let adds_walls = [Orientation::Horizontal, Orientation::Vertical]
+        .iter()
+        .map(|x| *x)
+        .flat_map(|o| {
+            (0..8).flat_map(move |y| {
+                (0..8).map(move |x| Move::AddWall {
+                    orientation: o,
+                    location: (x, y),
+                })
+            })
+        });
+
+    let shifts = [
+        Direction::Up,
+        Direction::Down,
+        Direction::Left,
+        Direction::Right,
+    ]
+    .iter()
+    .map(|x| Move::MoveToken(*x));
+
+    shifts.chain(adds_walls)
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
