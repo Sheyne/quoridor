@@ -1,6 +1,7 @@
 from game_wrapper import QuoridorGame
 import numpy
 
+
 class AlphaZeroQuoridorGame:
     def check_player_valid(self, board, player):
         assert board.current_player == player
@@ -28,10 +29,10 @@ class AlphaZeroQuoridorGame:
         return board.get_result(player)
 
     def getCanonicalForm(self, board, player):
-        return board.canonical_form()
+        return board.canonical_form(player)
 
     def getSymmetries(self, board, pi):
-        return []
+        return [(board, pi)]
 
     def stringRepresentation(self, board):
         return board.as_str()
@@ -51,8 +52,7 @@ class AlphaZeroQuoridorGame:
             min_score = 0
         adjusted_scores = (scores - min_score)
         masked_scores = adjusted_scores * self.getValidMoves(board, player)
-        return  masked_scores, scores.mean()
-
+        return masked_scores, scores.mean()
 
     def getScore(self, board, player):
         return board.distance_to_goal(-1 * player) - board.distance_to_goal(player)
@@ -73,4 +73,3 @@ if __name__ == "__main__":
         if ended != 0:
             print(f"Player {player * -1} {'wins' if ended == 1 else 'loses'}")
             break
-

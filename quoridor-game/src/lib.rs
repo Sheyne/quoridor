@@ -4,6 +4,7 @@ pub mod v1;
 
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
+use parse_display::{Display, FromStr};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Orientation {
@@ -140,7 +141,8 @@ pub enum Direction {
     Right,
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, FromStr, Display)]
+#[display(style = "kebab-case")]
 pub enum Player {
     Player1,
     Player2,

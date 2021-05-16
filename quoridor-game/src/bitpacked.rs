@@ -280,6 +280,19 @@ impl BoardV2 {
         }
     }
 
+    pub fn from_repr_string(repr: &str) -> Option<BoardV2> {
+        let mut bits = repr.split_ascii_whitespace();
+        
+        Some(BoardV2 {
+            horizontal: bits.next()?.parse().ok()?,
+            vertical: bits.next()?.parse().ok()?,
+            player1_pos: Position::new(bits.next()?.parse::<u8>().ok()? - 1)?,
+            player2_pos: Position::new(bits.next()?.parse::<u8>().ok()? - 1)?,
+            player1_walls: bits.next()?.parse().ok()?,
+            player2_walls: bits.next()?.parse().ok()?,
+        })
+    }
+
     pub fn repr_string(&self) -> String {
         format!(
             "{} {} {} {} {} {}",

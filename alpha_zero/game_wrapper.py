@@ -8,6 +8,12 @@ class QuoridorGame:
         else:
             self.rust_game = rust_game
 
+    def __getstate__(self):
+        return self.as_str()
+    
+    def __setstate__(self, state):
+        self.rust_game = RustGame.from_str(state)
+
     def copy(self):
         return QuoridorGame(self.rust_game.clone())
 
@@ -20,7 +26,8 @@ class QuoridorGame:
         if self.rust_game.get_location(2)[1] == 0:
             return -1 * player
         if self.rust_game.available_walls(1) == 0 and self.rust_game.available_walls(2) == 0:
-            am_closer = self.distance_to_goal(player * -1) > self.distance_to_goal(player)
+            am_closer = self.distance_to_goal(
+                player * -1) > self.distance_to_goal(player)
             return 1 if am_closer else -1
         return 0
 
@@ -32,7 +39,7 @@ class QuoridorGame:
 
     def can_move_to(self, x, y):
         return self.rust_game.can_move_to((x, y))
-    
+
     def move_to(self, x, y):
         return self.rust_game.move_token_to((x, y))
 
@@ -69,26 +76,31 @@ class QuoridorGame:
 
         return numpy.array(add_walls_h + add_walls_v + token_moves, dtype="float32")
 
-    def canonical_form(self):
-        return QuoridorGame(rust_game=self.rust_game.canonical_form())
+    def canonical_form(self, player):
+        if player == 1:
+            return self
+        new = self.rust_game.clone()
+        new.swap_players()
+        return QuoridorGame(rust_game=new)
 
     def state_as_numpy(self):
-        result = numpy.zeros((9, 9, 5), dtype="float32")
+        result = numpy.zeros((9, 9, 6), dtype="float32")
+        swapped = self.rust_game.is_swapped()
 
-        multiplier = self.current_player
-
-        x, y = self.rust_game.get_location(1)
-        result[y, x, 0] = 1 * multiplier
-        x, y = self.rust_game.get_location(2)
-        result[y, x, 0] = -1 * multiplier
+        x, y = self.rust_game.get_location(2 if swapped else 1)
+        result[y, x, 0] = 1
+        x, y = self.rust_game.get_location(1 if swapped else 2)
+        result[y, x, 1] = 1
 
         for y in range(9):
             for x in range(9):
                 for direction in range(4):
-                    is_passible = 1 if self.rust_game.is_passible(x, y, direction) else 0
-                    result[y, x, direction + 1] = is_passible
+                    is_passible = 1 if self.rust_game.is_passible(
+                        x, y, direction) else 0
+                    result[y, x, direction + 2] = is_passible
 
-        result = result[:, ::self.current_player, :]
+        multiplier = -1 if swapped else 1
+        result = result[::multiplier, ::multiplier, :]
 
         return result
 
@@ -96,7 +108,8 @@ class QuoridorGame:
         return self.rust_game.distance_to_goal(1 if player == 1 else 2)
 
     def __str__(self):
-        h, v, p1l, p2l, p1w, p2w = map(int, self.as_str().split(" "))
+        swapped, current_player, *ints = self.as_str().split(" ")
+        h, v, p1l, p2l, p1w, p2w = map(int, ints)
         return board_from_numbers(h, v, p1l, p2l, p1w, p2w)
 
     @property
@@ -106,6 +119,7 @@ class QuoridorGame:
     @property
     def current_player(self):
         return 1 if self.rust_game.current_player() == 1 else -1
+
 
 def board_from_numbers(h, v, p1l, p2l, p1w, p2w):
     p1l = p1l - 1
@@ -141,6 +155,7 @@ def board_from_numbers(h, v, p1l, p2l, p1w, p2w):
 
     return "\n".join("".join(row) for row in g)
 
+
 if __name__ == "__main__":
     g = QuoridorGame()
     g.add_wall(2, 8, horizontal=True)
@@ -148,6 +163,14 @@ if __name__ == "__main__":
     print(g.rust_game.get_location(2))
     print(g.can_move_to(4, 7))
     g.move_to(4, 7)
-    print(g.state_as_numpy())
-    print(g.valid_moves_as_numpy())
+    g.add_wall(2, 4, horizontal=True)
+    # print(g.state_as_numpy())
+    # print(g.valid_moves_as_numpy())
+    print(g)
     print(g.as_str())
+
+    import pickle
+    pickled = pickle.dumps(g)
+    new_g = pickle.loads(pickled)
+    print(new_g)
+    print(new_g.as_str())

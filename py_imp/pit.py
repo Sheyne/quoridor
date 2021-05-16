@@ -31,10 +31,10 @@ hp = HumanOthelloPlayer(g).play
 n1 = NNet(g)
 if mini_othello:
     n1.load_checkpoint('./pretrained_models/othello/pytorch/',
-                       '6x100x25_best.pth.tar')
+                       '6x100x25_best.h5')
 else:
     n1.load_checkpoint('./pretrained_models/othello/pytorch/',
-                       '8x8_100checkpoints_best.pth.tar')
+                       '8x8_100checkpoints_best.h5')
 args1 = dotdict({'numMCTSSims': 50, 'cpuct': 1.0})
 mcts1 = MCTS(g, n1, args1)
 def n1p(x): return np.argmax(mcts1.getActionProb(x, temp=0))
@@ -45,7 +45,7 @@ if human_vs_cpu:
 else:
     n2 = NNet(g)
     n2.load_checkpoint('./pretrained_models/othello/pytorch/',
-                       '8x8_100checkpoints_best.pth.tar')
+                       '8x8_100checkpoints_best.h5')
     args2 = dotdict({'numMCTSSims': 50, 'cpuct': 1.0})
     mcts2 = MCTS(g, n2, args2)
     def n2p(x): return np.argmax(mcts2.getActionProb(x, temp=0))

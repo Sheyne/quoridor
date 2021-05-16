@@ -6,6 +6,7 @@ use quoridor_game::{bitpacked::BoardV2, Board, Move, Player};
 pub struct Game {
     board: BoardV2,
     current_player: Player,
+    swapped: bool,
 }
 
 #[pymethods]
@@ -15,7 +16,12 @@ impl Game {
         Game {
             board: BoardV2::empty(),
             current_player: Player::Player1,
+            swapped: false,
         }
+    }
+
+    pub fn swap_players(&mut self) {
+        self.swapped = !self.swapped;
     }
 
     pub fn clone(&self) -> Game {
@@ -23,7 +29,19 @@ impl Game {
     }
 
     pub fn as_str(&self) -> String {
-        self.board.repr_string()
+        format!("{} {} {}", self.swapped, self.current_player, self.board.repr_string())
+    }
+
+    #[staticmethod]
+    pub fn from_str(repr: &str) -> Option<Game> {
+        let (swapped, repr) = repr.split_once(' ')?;
+        let (current_player, repr) = repr.split_once(' ')?;
+
+        Some(Game {
+            swapped: swapped.parse().ok()?,
+            current_player: current_player.parse().ok()?,
+            board: BoardV2::from_repr_string(repr)?,
+        })
     }
 
     pub fn add_wall(&mut self, x: u8, y: u8, orientation: u8) -> bool {
@@ -41,11 +59,7 @@ impl Game {
     }
 
     pub fn available_walls(&self, player: u8) -> u8 {
-        self.board.available_walls(match player {
-            1 => Player::Player1,
-            2 => Player::Player2,
-            _ => return 0,
-        })
+        self.board.available_walls(self.map_player(player))
     }
 
     pub fn can_add_wall(&self, x: u8, y: u8, orientation: u8) -> bool {
@@ -94,11 +108,7 @@ impl Game {
 
     pub fn distance_to_goal(&self, player: u8) -> i8 {
         self.board
-            .distance_to_goal(match player {
-                1 => Player::Player1,
-                2 => Player::Player2,
-                _ => return -1,
-            })
+            .distance_to_goal(self.map_player(player))
             .map(|a| a as i8)
             .unwrap_or(-1)
     }
@@ -146,20 +156,19 @@ impl Game {
     }
 
     pub fn current_player(&self) -> u8 {
-        match self.current_player {
+        let mut player = self.current_player;
+        if self.swapped {
+            player = player.other();
+        }
+
+        match player {
             Player::Player1 => 1,
             Player::Player2 => 2,
         }
     }
 
     pub fn get_location(&self, player: u8) -> (u8, u8) {
-        let player = match player {
-            1 => Player::Player1,
-            2 => Player::Player2,
-            _ => panic!(),
-        };
-
-        self.board.player_location(player)
+        self.board.player_location(self.map_player(player))
     }
 
     pub fn get_wall_status(&self, x: u8, y: u8) -> u8 {
@@ -168,6 +177,10 @@ impl Game {
             Some(quoridor_game::Orientation::Horizontal) => 1,
             Some(quoridor_game::Orientation::Vertical) => 2,
         }
+    }
+
+    pub fn is_swapped(&self) -> bool {
+        self.swapped
     }
 
     pub fn is_passible(&self, x: u8, y: u8, direction: u8) -> bool {
@@ -182,14 +195,32 @@ impl Game {
         self.board.is_passible((x, y), direction)
     }
 
-    pub fn canonical_form(&self) -> Game {
-        if self.current_player == Player::Player1 {
-            self.clone()
+
+    // pub fn canonical_form(&self) -> Game {
+    //     if self.current_player == Player::Player1 {
+    //         self.clone()
+    //     } else {
+    //         Game {
+    //             board: self.board.flip(),
+    //             current_player: Player::Player1,
+    //             false
+    //         }
+    //     }
+    // }
+}
+
+impl Game {
+    fn map_player(&self, player: u8) -> Player {
+        let player = match player {
+            1 => Player::Player1,
+            2 => Player::Player2,
+            _ => todo!(),
+        };
+
+        if self.swapped {
+            player.other()
         } else {
-            Game {
-                board: self.board.flip(),
-                current_player: Player::Player1,
-            }
+            player
         }
     }
 }

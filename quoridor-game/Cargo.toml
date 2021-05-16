@@ -11,3 +11,4 @@ serde = { version = "1.0", features = ["derive"] }
 fxhash = "0.2.1"
 mcts = "0.3.0"
 rubot = ""
+parse-display = "0.4.1"
