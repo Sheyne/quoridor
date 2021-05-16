@@ -45,7 +45,11 @@ if human_vs_cpu:
 else:
     n2 = NNet(g)
     n2.load_checkpoint('./pretrained_models/othello/pytorch/',
+<<<<<<< HEAD
                        '8x8_100checkpoints_best.h5')
+=======
+                       '8x8_100checkpoints_best.pth.tar')
+>>>>>>> 57d3f301dfe7a2ead8a1d99e9ee46a3d59f49a67
     args2 = dotdict({'numMCTSSims': 50, 'cpuct': 1.0})
     mcts2 = MCTS(g, n2, args2)
     def n2p(x): return np.argmax(mcts2.getActionProb(x, temp=0))
