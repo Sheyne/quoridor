@@ -1,5 +1,10 @@
 import numpy
 from quoridor_python import Game as RustGame
+from collections import namedtuple
+
+AddWall = namedtuple("AddWall", "x, y, horizontal")
+MoveTo = namedtuple("MoveTo", "x, y")
+
 
 class QuoridorGame:
     def __init__(self, rust_game=None):
@@ -42,20 +47,33 @@ class QuoridorGame:
 
     def move_to(self, x, y):
         return self.rust_game.move_token_to((x, y))
+    
+    def move(self, direction):
+        return self.rust_game.move_token(direction)
 
-    def execute_move_at_idx(self, move_idx):
+    def translate_idx(self, move_idx):
         if move_idx < 64 * 2:
             horizontal = move_idx < 64
             if not horizontal:
                 move_idx -= 64
             x = move_idx % 8
             y = move_idx // 8
-            added = self.add_wall(x, y, horizontal)
+            return AddWall(x, y, horizontal)
         else:
             move_idx -= 64*2
             x = move_idx % 9
             y = move_idx // 9
-            added = self.move_to(x, y)
+            return MoveTo(x, y)
+
+    def execute_move_at_idx(self, move_idx):
+        move = self.translate_idx(move_idx)
+
+        if isinstance(move, AddWall):
+            x, y, horizontal = move
+            return self.add_wall(x, y, horizontal)
+        if isinstance(move, MoveTo):
+            x, y = move
+            return self.move_to(x, y)
 
     def valid_moves_as_numpy(self):
         add_walls_h = [
@@ -115,6 +133,9 @@ class QuoridorGame:
     @property
     def s(self):
         return str(self)
+
+    def player_location(self, player):
+        return self.rust_game.get_location(1 if player == 1 else 2)
 
     @property
     def current_player(self):
