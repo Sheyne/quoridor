@@ -58,7 +58,7 @@ fn display_cell(cell: &DisplayCell, (x, y): (u8, u8)) -> Result<(), DisplayError
     if x != 8 {
         queue!(
             stdout(),
-            crossterm::cursor::MoveTo((2 * x + 1) as u16, (2 * y) as u16),
+            crossterm::cursor::MoveTo((3 * x + 2) as u16, (2 * y) as u16),
             SetForegroundColor(cell.right.to_color()),
             Print("|")
         )?;
@@ -66,9 +66,9 @@ fn display_cell(cell: &DisplayCell, (x, y): (u8, u8)) -> Result<(), DisplayError
     if y != 8 {
         queue!(
             stdout(),
-            crossterm::cursor::MoveTo((2 * x + 0) as u16, (2 * y + 1) as u16),
+            crossterm::cursor::MoveTo((3 * x + 0) as u16, (2 * y + 1) as u16),
             SetForegroundColor(cell.bottom.to_color()),
-            Print("-")
+            Print("--")
         )?;
         if x != 8 {
             queue!(
@@ -277,7 +277,7 @@ fn display(board: &BoardV1, player_and_move: Option<(&Player, &Move)>) -> Result
         let loc = board.location(player);
         queue!(
             stdout(),
-            crossterm::cursor::MoveTo((2 * loc.0) as u16, (2 * loc.1) as u16),
+            crossterm::cursor::MoveTo((3 * loc.0) as u16, (2 * loc.1) as u16),
             match player {
                 Player::Player1 => Print("v"),
                 Player::Player2 => Print("^"),
@@ -293,7 +293,7 @@ fn display(board: &BoardV1, player_and_move: Option<(&Player, &Move)>) -> Result
                         stdout(),
                         SetForegroundColor(DisplayWallState::Candidate.to_color()),
                         crossterm::cursor::MoveTo(
-                            (2 * candidate_pos.0) as u16,
+                            (3 * candidate_pos.0) as u16,
                             (2 * candidate_pos.1) as u16
                         ),
                         Print("#")
@@ -310,14 +310,16 @@ fn display(board: &BoardV1, player_and_move: Option<(&Player, &Move)>) -> Result
         SetForegroundColor(crossterm::style::Color::White),
         crossterm::cursor::MoveTo(0, 18),
         Print(format!(
-            "1 (v) has {} steps to go",
+            "1 (v) has {} walls and {} steps to go",
+            board.available_walls(crate::Player::Player1),
             board
                 .distance_to_goal(crate::Player::Player1)
                 .unwrap_or(u8::MAX)
         )),
         crossterm::cursor::MoveTo(0, 19),
         Print(format!(
-            "2 (^) has {} steps to go",
+            "2 (^) has {} walls and {} steps to go",
+            board.available_walls(crate::Player::Player2),
             board
                 .distance_to_goal(crate::Player::Player2)
                 .unwrap_or(u8::MAX)

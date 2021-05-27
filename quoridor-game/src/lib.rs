@@ -24,6 +24,8 @@ impl Orientation {
 pub trait Board {
     fn empty() -> Self;
 
+    fn available_walls(&self, player: Player) -> u8;
+
     fn add_wall(
         &mut self,
         player: Player,
@@ -36,7 +38,6 @@ pub trait Board {
     }
     fn is_legal(&self, player: Player, candidate_move: &Move) -> bool;
     fn get_wall_state(&self, location: (u8, u8)) -> Option<Orientation>;
-    fn available_walls(&self, player: Player) -> u8;
     fn apply_move(&mut self, candidate: &Move, player: Player) -> Result<(), ()> {
         match candidate {
             Move::AddWall {
