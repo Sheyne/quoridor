@@ -69,12 +69,10 @@ impl RemotePlayer for tcp::Game {
 
 impl<B: Board + Clone + Hash + Eq> RemotePlayer for quoridor_ai::greedy::GreedyAiPlayer<B> {
     fn send(&mut self, m: &Move) -> Result<(), Error> {
-        quoridor_ai::greedy::GreedyAiPlayer::send(self, m)
-            .map_err(|_| Error::InvalidMoveAttempted)
+        quoridor_ai::greedy::GreedyAiPlayer::send(self, m).map_err(|_| Error::InvalidMoveAttempted)
     }
     fn receive(&mut self) -> Result<Move, Error> {
-        quoridor_ai::greedy::GreedyAiPlayer::receive(self)
-            .map_err(|_| Error::InvalidMoveAttempted)
+        quoridor_ai::greedy::GreedyAiPlayer::receive(self).map_err(|_| Error::InvalidMoveAttempted)
     }
 }
 
@@ -134,13 +132,11 @@ impl TryFrom<PlayerKind> for PlayerDriver {
                 PlayerDriver::RemotePlayer(Box::new(tcp::Game::connect(connect)?))
             }
             PlayerKind::GreedyAi => {
-                PlayerDriver::RemotePlayer(Box::new(GreedyAiPlayer::new(board)))
+                PlayerDriver::RemotePlayer(Box::new(GreedyAiPlayer::new(board, Player::Player1)))
             }
-            PlayerKind::Rubot => {
-                PlayerDriver::RemotePlayer(Box::new(quoridor_ai::rubot::QuoridorGame::<
-                    BoardV2,
-                >::new()))
-            }
+            PlayerKind::Rubot => PlayerDriver::RemotePlayer(Box::new(
+                quoridor_ai::rubot::QuoridorGame::<BoardV2>::new(),
+            )),
             PlayerKind::MctsAi(t) => {
                 PlayerDriver::RemotePlayer(Box::new(MctsAiPlayer::new(board, t)))
             }

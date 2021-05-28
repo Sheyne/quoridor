@@ -1,8 +1,8 @@
-use quoridor_game::{bitpacked::BoardV2, Board, Move, Player};
 use fxhash::FxHasher;
 use mcts::transposition_table::*;
 use mcts::tree_policy::*;
 use mcts::*;
+use quoridor_game::{bitpacked::BoardV2, Board, Move, Player};
 use std::{
     fmt::Debug,
     hash::{Hash, Hasher},

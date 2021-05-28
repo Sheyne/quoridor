@@ -8,10 +8,10 @@ pub struct GreedyAiPlayer<B: Board + Clone> {
 }
 
 impl<B: Board + Clone + Hash + Eq> GreedyAiPlayer<B> {
-    pub fn new(board: B) -> Self {
+    pub fn new(board: B, current_player: Player) -> Self {
         Self {
             board,
-            current_player: Player::Player1,
+            current_player: current_player,
         }
     }
 }
@@ -25,7 +25,6 @@ impl<B: Board + Clone + Hash + Eq> GreedyAiPlayer<B> {
 
     pub fn receive(&mut self) -> Result<Move, ()> {
         let m = best_move(self.board.clone(), self.current_player)?;
-        std::thread::sleep(std::time::Duration::from_millis(500));
         self.board.apply_move(&m, self.current_player)?;
         self.current_player = self.current_player.other();
         Ok(m)

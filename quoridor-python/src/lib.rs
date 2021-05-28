@@ -29,7 +29,12 @@ impl Game {
     }
 
     pub fn as_str(&self) -> String {
-        format!("{} {} {}", self.swapped, self.current_player, self.board.repr_string())
+        format!(
+            "{} {} {}",
+            self.swapped,
+            self.current_player,
+            self.board.repr_string()
+        )
     }
 
     #[staticmethod]
@@ -194,7 +199,6 @@ impl Game {
 
         self.board.is_passible((x, y), direction)
     }
-
 
     // pub fn canonical_form(&self) -> Game {
     //     if self.current_player == Player::Player1 {

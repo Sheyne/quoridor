@@ -1,9 +1,9 @@
 pub mod bitpacked;
 pub mod v1;
 
+use parse_display::{Display, FromStr};
 use serde::{Deserialize, Serialize};
 use std::hash::Hash;
-use parse_display::{Display, FromStr};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum Orientation {

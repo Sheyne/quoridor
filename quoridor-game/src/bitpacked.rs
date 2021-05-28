@@ -282,7 +282,7 @@ impl BoardV2 {
 
     pub fn from_repr_string(repr: &str) -> Option<BoardV2> {
         let mut bits = repr.split_ascii_whitespace();
-        
+
         Some(BoardV2 {
             horizontal: bits.next()?.parse().ok()?,
             vertical: bits.next()?.parse().ok()?,
