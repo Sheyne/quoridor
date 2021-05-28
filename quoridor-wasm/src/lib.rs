@@ -1,7 +1,7 @@
 mod utils;
 
 use quoridor_ai::{greedy::GreedyAiPlayer, rubot::QuoridorGame};
-use quoridor_game::{bitpacked::BoardV2, Board, Move::*, Player};
+use quoridor_game::{bitpacked::BoardV2, Board, Player};
 use wasm_bindgen::prelude::*;
 
 // When the `wee_alloc` feature is enabled, use `wee_alloc` as the global
@@ -61,51 +61,29 @@ impl Ai {
         })
     }
 
-    pub fn send(&mut self, mov: &Move) {
+    pub fn send(&mut self, mov: JsValue) {
+        let mov = mov.into_serde().unwrap();
         match &mut self.0 {
-            AiHolder::Greedy(g) => g.send(&mov.0).unwrap(),
-            AiHolder::Rubot(r) => r.apply_move(&mov.0).unwrap(),
+            AiHolder::Greedy(g) => g.send(&mov).unwrap(),
+            AiHolder::Rubot(r) => r.apply_move(&mov).unwrap(),
         }
     }
 
-    pub fn receive(&mut self) -> Move {
-        Move(match &mut self.0 {
+    pub fn receive(&mut self) -> JsValue {
+        JsValue::from_serde(&match &mut self.0 {
             AiHolder::Greedy(g) => g.receive().unwrap(),
             AiHolder::Rubot(r) => {
-                if let Some(mov) =
-                    rubot::Bot::new(r.current_player()).select(r, std::time::Duration::from_secs(1))
+                let mov = if let Some(mov) =
+                    rubot::Bot::new(r.current_player()).select(r, rubot::Depth(3))
                 {
                     mov
                 } else {
                     quoridor_ai::greedy::best_move(r.board().clone(), r.current_player()).unwrap()
-                }
+                };
+                r.apply_move(&mov);
+                mov
             }
-        })
-    }
-}
-
-#[wasm_bindgen]
-pub struct Move(quoridor_game::Move);
-
-#[wasm_bindgen]
-impl Move {
-    pub fn add_wall(x: u8, y: u8, orientation: Orientation) -> Move {
-        Move(AddWall {
-            location: (x, y),
-            orientation: match orientation {
-                Orientation::Horizontal => quoridor_game::Orientation::Horizontal,
-                Orientation::Vertical => quoridor_game::Orientation::Vertical,
-            },
-        })
-    }
-
-    pub fn move_token(direction: Direction) -> Move {
-        Move(MoveToken(match direction {
-            Direction::Up => quoridor_game::Direction::Up,
-            Direction::Down => quoridor_game::Direction::Down,
-            Direction::Left => quoridor_game::Direction::Left,
-            Direction::Right => quoridor_game::Direction::Right,
-        }))
+        }).unwrap()
     }
 }
 
@@ -154,9 +132,10 @@ impl Game {
         self.board.available_walls(player)
     }
 
-    pub fn apply_move(&mut self, mov: &Move) -> bool {
-        if self.board.is_legal(self.current_player, &mov.0) {
-            if self.board.apply_move(&mov.0, self.current_player).is_ok() {
+    pub fn apply_move(&mut self, mov: JsValue) -> bool {
+        let mov = mov.into_serde().unwrap();
+        if self.board.is_legal(self.current_player, &mov) {
+            if self.board.apply_move(&mov, self.current_player).is_ok() {
                 self.current_player = self.current_player.other();
                 return true;
             }

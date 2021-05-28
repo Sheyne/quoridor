@@ -195,7 +195,7 @@ export class BoardView {
             if (this.focused.kind == "horizontal") {
                 let x = this.focused.x;
                 let y = this.focused.y;
-                if (game.copy().apply_move(wasm.Move.add_wall(x, y, wasm.Orientation.Horizontal))) {
+                if (game.copy().apply_move({"AddWall": {location: [x, y], orientation: "Horizontal"}})) {
                     this.getWall(x, y, true).style.backgroundColor = "#333";
                     this.getJoint(x, y).style.backgroundColor = "#333";
                     this.getWall(x + 1, y, true).style.backgroundColor = "#333";
@@ -204,7 +204,7 @@ export class BoardView {
             if (this.focused.kind == "vertical") {
                 let x = this.focused.x;
                 let y = this.focused.y;
-                if (game.copy().apply_move(wasm.Move.add_wall(x, y, wasm.Orientation.Vertical))) {
+                if (game.copy().apply_move({"AddWall": {location: [x, y], orientation: "Vertical"}})) {
                     this.getWall(x, y, false).style.backgroundColor = "#333";
                     this.getJoint(x, y).style.backgroundColor = "#333";
                     this.getWall(x, y + 1, false).style.backgroundColor = "#333";

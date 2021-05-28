@@ -1,27 +1,37 @@
 import * as wasm from "quoridor-wasm";
 import { BoardView } from "./board";
+import Worker from "./bootstrap.worker.js";
 
 let view = new BoardView();
 view.init();
 document.body.appendChild(view.div);
 
 let game = new wasm.Game();
-let ai = new wasm.Ai("greedy");
+let my_turn = true;
+
+let ai_worker = new Worker();
+ai_worker.onmessage = function (event) {
+    game.apply_move(event.data);
+    view.render(game);
+    my_turn = true;
+};
 
 view.onclick = (info, event) => {
+    if (!my_turn)
+        return;
     let {kind, x,  y} = info;
     let move = null;
     if (kind == "horizontal") {
-        move = wasm.Move.add_wall(x, y, wasm.Orientation.Horizontal);
+        move = {"AddWall": {location: [x, y], orientation: "Horizontal"}};
     }
     if (kind == "vertical") {
-        move = wasm.Move.add_wall(x, y, wasm.Orientation.Vertical);
+        move = {"AddWall": {location: [x, y], orientation: "Vertical"}};
     }
     if (move != null) {
         if (game.apply_move(move)) {
-            ai.send(move);
+            my_turn = false;
+            ai_worker.postMessage(move);
             view.render(game);
-            game.apply_move(ai.receive());
         }
     }
     view.render(game);
@@ -30,24 +40,26 @@ view.onclick = (info, event) => {
 view.render(game);
 
 window.addEventListener("keyup", function (e) {
+    if (!my_turn)
+        return;
     let move = null;
     if (e.keyCode == '38') {
-        move = wasm.Move.move_token(wasm.Direction.Up);
+        move = {"MoveToken": "Up"};
     }
     else if (e.keyCode == '40') {
-        move = wasm.Move.move_token(wasm.Direction.Down);
+        move = {"MoveToken": "Down"};
     }
     else if (e.keyCode == '37') {
-        move = wasm.Move.move_token(wasm.Direction.Left);
+        move = {"MoveToken": "Left"};
     }
     else if (e.keyCode == '39') {
-        move = wasm.Move.move_token(wasm.Direction.Right);
+        move = {"MoveToken": "Right"};
     }
     if (move != null) {
         if (game.apply_move(move)) {
-            ai.send(move);
+            my_turn = false;
+            ai_worker.postMessage(move);
             view.render(game);
-            game.apply_move(ai.receive());
         }
     }
     view.render(game);
