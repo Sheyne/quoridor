@@ -13,6 +13,8 @@ default = ["console_error_panic_hook"]
 [dependencies]
 wasm-bindgen = "0.2.63"
 quoridor-game = { path = "../quoridor-game" }
+quoridor-ai = { path = "../quoridor-ai", default-features = false, features = ["use-rubot", "use-greedy"] }
+rubot = ""
 
 # The `console_error_panic_hook` crate provides better debugging of panics by
 # logging them with `console.error`. This is great for development, but requires

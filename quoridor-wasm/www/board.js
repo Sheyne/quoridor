@@ -38,6 +38,7 @@ export class BoardView {
 
     init() {
         this.div = document.createElement("div");
+
         this.div.addEventListener("click", e => {
             if (e.toElement.data) {
                 let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
@@ -117,6 +118,9 @@ export class BoardView {
             this.horizontal.push(floorWallRow);
             this.joints.push(jointsRow);
         }
+
+        this.infoDiv = document.createElement("div");
+        this.div.appendChild(this.infoDiv);
     }
 
     createWall(horizontal) {
@@ -153,7 +157,9 @@ export class BoardView {
     }
 
     render(game) {
-        this.lastGame = game;
+        this.lastGame = game.copy();
+        this.infoDiv.innerHTML = "Player 1 has " + game.available_walls(1) + " walls left.<br/>" +
+                                 "Player 2 has " + game.available_walls(2) + " walls left.<br/>";
 
         for (let y = 0; y <= 8; y ++) {
             for (let x = 0; x <= 8; x ++) {
@@ -189,16 +195,20 @@ export class BoardView {
             if (this.focused.kind == "horizontal") {
                 let x = this.focused.x;
                 let y = this.focused.y;
-                this.getWall(x, y, true).style.backgroundColor = "#333";
-                this.getJoint(x, y).style.backgroundColor = "#333";
-                this.getWall(x + 1, y, true).style.backgroundColor = "#333";
+                if (game.copy().apply_move(wasm.Move.add_wall(x, y, wasm.Orientation.Horizontal))) {
+                    this.getWall(x, y, true).style.backgroundColor = "#333";
+                    this.getJoint(x, y).style.backgroundColor = "#333";
+                    this.getWall(x + 1, y, true).style.backgroundColor = "#333";
+                }
             }
             if (this.focused.kind == "vertical") {
                 let x = this.focused.x;
                 let y = this.focused.y;
-                this.getWall(x, y, false).style.backgroundColor = "#333";
-                this.getJoint(x, y).style.backgroundColor = "#333";
-                this.getWall(x, y + 1, false).style.backgroundColor = "#333";
+                if (game.copy().apply_move(wasm.Move.add_wall(x, y, wasm.Orientation.Vertical))) {
+                    this.getWall(x, y, false).style.backgroundColor = "#333";
+                    this.getJoint(x, y).style.backgroundColor = "#333";
+                    this.getWall(x, y + 1, false).style.backgroundColor = "#333";
+                }
             }
         }
 
