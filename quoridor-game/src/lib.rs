@@ -64,6 +64,10 @@ pub trait Board {
             Player::Player2 => p2_d2g,
         };
 
+        if d2g(self.player_location(player)) == 0 {
+            return Some(0);
+        }
+
         let mut costs = [[0xffu8; 9]; 9];
         let mut heap = BinaryHeap::with_capacity(81);
 

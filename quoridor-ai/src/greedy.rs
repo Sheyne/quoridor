@@ -91,11 +91,18 @@ pub fn best_move<B: Board + Clone + Hash + Eq>(board: B, player: Player) -> Resu
         Some((mov, nb))
     });
 
-    let scores = boards.map(|(mov, board)| {
+    let distances = boards.map(|(mov, board)| {
         (
             mov,
-            board.distance_to_goal(player.other()).unwrap() as i8
-                - board.distance_to_goal(player).unwrap() as i8,
+            board.distance_to_goal(player).unwrap() as i8,
+            board.distance_to_goal(player.other()).unwrap() as i8,
+        )
+    });
+
+    let scores = distances.map(|(mov, my_dist, their_dist)| {
+        (
+            mov,
+            their_dist - my_dist
         )
     });
 

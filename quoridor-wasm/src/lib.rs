@@ -156,6 +156,15 @@ impl Game {
         false
     }
 
+    pub fn distance_to_goal(&self, player: u8) -> u8 {
+        let player = match player {
+            1 => Player::Player1,
+            2 => Player::Player2,
+            _ => panic!(),
+        };
+        self.board.distance_to_goal(player).unwrap()
+    }
+
     pub fn get_wall_status(&self, x: u8, y: u8) -> WallState {
         match self.board.get_wall_state((x, y)) {
             None => WallState::Empty,
