@@ -1,4 +1,4 @@
-use crate::{Board, Direction, Move, Orientation, Player};
+use quoridor_game::{Board, Direction, Move, Orientation, Player};
 // use fxhash::FxHashMap;
 use std::hash::Hash;
 

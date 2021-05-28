@@ -1,4 +1,4 @@
-use crate::{bitpacked::BoardV2, Board, Move, Player};
+use quoridor_game::{bitpacked::BoardV2, Board, Move, Player};
 use fxhash::FxHasher;
 use mcts::transposition_table::*;
 use mcts::tree_policy::*;

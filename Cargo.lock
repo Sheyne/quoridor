@@ -747,12 +747,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "quoridor-ai"
+version = "0.1.0"
+dependencies = [
+ "fxhash",
+ "mcts",
+ "quoridor-game",
+ "rubot",
+]
+
+[[package]]
 name = "quoridor-cli"
 version = "0.1.0"
 dependencies = [
  "clap 3.0.0-beta.2",
  "crossterm",
  "parse-display",
+ "quoridor-ai",
  "quoridor-game",
  "rubot",
  "serde",
@@ -764,9 +775,7 @@ name = "quoridor-game"
 version = "0.1.0"
 dependencies = [
  "fxhash",
- "mcts",
  "parse-display",
- "rubot",
  "serde",
 ]
 

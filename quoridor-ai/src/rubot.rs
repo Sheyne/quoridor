@@ -1,4 +1,4 @@
-use crate::{Board, Move, Player};
+use quoridor_game::{Board, Move, Player};
 
 #[derive(Clone)]
 pub struct QuoridorGame<B: Board> {

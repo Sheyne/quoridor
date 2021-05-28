@@ -2,6 +2,7 @@
 default-members = ["quoridor-cli", "quoridor-game"]
 members = [
     "quoridor-cli",
+    "quoridor-ai",
     "quoridor-game",
     "quoridor-wasm",
     "quoridor-python",
