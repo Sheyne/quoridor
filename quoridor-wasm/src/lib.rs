@@ -1,6 +1,6 @@
 mod utils;
 
-use quoridor_ai::{greedy::GreedyAiPlayer, rubot::QuoridorGame};
+use quoridor_ai::rubot::QuoridorGame;
 use quoridor_game::{bitpacked::BoardV2, Board, Player};
 use wasm_bindgen::prelude::*;
 
@@ -42,48 +42,61 @@ pub enum Orientation {
     Vertical,
 }
 
-pub enum AiHolder {
-    Greedy(GreedyAiPlayer<BoardV2>),
-    Rubot(QuoridorGame<BoardV2>),
+#[wasm_bindgen]
+pub enum AiKind {
+    Greedy,
+    Rubot,
 }
 
 #[wasm_bindgen]
-pub struct Ai(AiHolder);
+pub struct Ai(AiKind, QuoridorGame<BoardV2>, u32);
 
 #[wasm_bindgen]
 impl Ai {
     #[wasm_bindgen(constructor)]
-    pub fn new(kind: &str) -> Ai {
-        Ai(match kind {
-            "greedy" => AiHolder::Greedy(GreedyAiPlayer::new(BoardV2::empty(), Player::Player1)),
-            "rubot" => AiHolder::Rubot(QuoridorGame::new()),
-            _ => panic!(),
-        })
+    pub fn new() -> Ai {
+        Ai(AiKind::Greedy, QuoridorGame::new(), 2000)
+    }
+
+    pub fn set_greedy(&mut self) {
+        self.0 = AiKind::Greedy;
+    }
+
+    pub fn set_rubot(&mut self, steps: u32) {
+        self.0 = AiKind::Rubot;
+        self.2 = steps;
     }
 
     pub fn send(&mut self, mov: JsValue) {
         let mov = mov.into_serde().unwrap();
-        match &mut self.0 {
-            AiHolder::Greedy(g) => g.send(&mov).unwrap(),
-            AiHolder::Rubot(r) => r.apply_move(&mov).unwrap(),
-        }
+        self.1.apply_move(&mov).unwrap();
     }
 
     pub fn receive(&mut self) -> JsValue {
-        JsValue::from_serde(&match &mut self.0 {
-            AiHolder::Greedy(g) => g.receive().unwrap(),
-            AiHolder::Rubot(r) => {
-                let mov = if let Some(mov) =
-                    rubot::Bot::new(r.current_player()).select(r, rubot::Depth(3))
-                {
-                    mov
-                } else {
-                    quoridor_ai::greedy::best_move(r.board().clone(), r.current_player()).unwrap()
-                };
-                r.apply_move(&mov);
-                mov
-            }
-        }).unwrap()
+        JsValue::from_serde(&{
+            let mov = match &mut self.0 {
+                AiKind::Greedy => {
+                    quoridor_ai::greedy::best_move(self.1.board().clone(), self.1.current_player())
+                        .unwrap()
+                }
+                AiKind::Rubot => {
+                    if let Some(mov) = rubot::Bot::new(self.1.current_player())
+                        .select(&self.1, rubot::Steps(self.2))
+                    {
+                        mov
+                    } else {
+                        quoridor_ai::greedy::best_move(
+                            self.1.board().clone(),
+                            self.1.current_player(),
+                        )
+                        .unwrap()
+                    }
+                }
+            };
+            self.1.apply_move(&mov).unwrap();
+            mov
+        })
+        .unwrap()
     }
 }
 

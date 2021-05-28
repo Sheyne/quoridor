@@ -1,9 +1,15 @@
 import * as wasm from "quoridor-wasm";
 
-let ai = new wasm.Ai("rubot");
+let ai = new wasm.Ai();
 
 onmessage = function(e) {
-    ai.send(e.data);
-    postMessage(ai.receive());
+    if (e.data.move) {
+        ai.send(e.data.move);
+        postMessage(ai.receive());
+    } else if (e.data.setMode == "greedy") {
+        ai.set_greedy()
+    } else if (e.data.setMode && e.data.setMode.rubot) {
+        ai.set_rubot(e.data.setMode.rubot)
+    }
 }
   

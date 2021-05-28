@@ -16,6 +16,17 @@ ai_worker.onmessage = function (event) {
     my_turn = true;
 };
 
+let slider = document.createElement("input");
+let sliderSpan = document.createElement("label");
+sliderSpan.textContent = "Difficulty: ";
+document.body.appendChild(sliderSpan);
+slider.type = "range";
+slider.min = "0";
+slider.max = "4000";
+slider.value = "1500";
+slider.addEventListener("change", (e) =>  ai_worker.postMessage({setMode: {rubot: Number(slider.value)}}));
+document.body.appendChild(slider);
+
 view.onclick = (info, event) => {
     if (!my_turn)
         return;
@@ -30,7 +41,7 @@ view.onclick = (info, event) => {
     if (move != null) {
         if (game.apply_move(move)) {
             my_turn = false;
-            ai_worker.postMessage(move);
+            ai_worker.postMessage({move: move});
             view.render(game);
         }
     }
@@ -58,7 +69,7 @@ window.addEventListener("keyup", function (e) {
     if (move != null) {
         if (game.apply_move(move)) {
             my_turn = false;
-            ai_worker.postMessage(move);
+            ai_worker.postMessage({move: move});
             view.render(game);
         }
     }
