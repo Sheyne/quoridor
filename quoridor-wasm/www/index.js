@@ -79,16 +79,16 @@ function startgame() {
         if (!my_turn)
             return;
         let move = null;
-        if (e.keyCode == '38') {
+        if (e.code == "ArrowUp") {
             move = {"MoveToken": "Up"};
         }
-        else if (e.keyCode == '40') {
+        else if (e.code == "ArrowDown") {
             move = {"MoveToken": "Down"};
         }
-        else if (e.keyCode == '37') {
+        else if (e.code == "ArrowLeft") {
             move = {"MoveToken": "Left"};
         }
-        else if (e.keyCode == '39') {
+        else if (e.code == "ArrowRight") {
             move = {"MoveToken": "Right"};
         }
         if (move != null) {

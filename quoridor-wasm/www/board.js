@@ -38,6 +38,7 @@ export class BoardView {
 
     init() {
         this.div = document.createElement("div");
+        this.div.classList.add("quoridor-board");
 
         this.div.addEventListener("click", e => {
             if (e.toElement.data) {
@@ -64,27 +65,19 @@ export class BoardView {
 
         for (let y = 0; y <= 8; y ++) {
             let rowDiv = document.createElement("div");
-            rowDiv.style.margin = "0";
-            rowDiv.style.padding = "0";
-            rowDiv.style.lineHeight = "0";
-            rowDiv.style.display = "flex";
+            rowDiv.classList.add("quoridor-cell-row");
+            rowDiv.classList.add("quoridor-row");
             let floorRowDiv = document.createElement("div");
-            floorRowDiv.style.margin = "0";
-            floorRowDiv.style.padding = "0";
-            floorRowDiv.style.lineHeight = "0";
-            floorRowDiv.style.display = "flex";
+            floorRowDiv.classList.add("quoridor-wall-row");
+            floorRowDiv.classList.add("quoridor-row");
             let row = [];
             let wallRow = [];
             let floorWallRow = [];
             let jointsRow = [];
             for (let x = 0; x <= 8; x ++) {
-                let cellSpan = document.createElement("span");
+                let cellSpan = document.createElement("div");
+                cellSpan.classList.add("quoridor-cell");
                 cellSpan.data = {"kind": "cell", x: x, y: y};
-                cellSpan.style.margin = "0";
-                cellSpan.style.padding = "0";
-                cellSpan.style.display = "flex";
-                cellSpan.style.width = "3em";
-                cellSpan.style.height = "3em";
                 rowDiv.appendChild(cellSpan);
                 row.push(cellSpan);
                 if (x != 8) {
@@ -99,13 +92,10 @@ export class BoardView {
                     floorRowDiv.appendChild(wall);
                     floorWallRow.push(wall);
                     if (x != 8) {
-                        let joint = document.createElement("span");
+                        let joint = document.createElement("div");
+                        joint.classList.add("quoridor-wall");
+                        joint.classList.add("quoridor-joint");
                         joint.data = {"kind": "joint", x: x, y: y};
-                        joint.style.margin = "0";
-                        joint.style.padding = "0";
-                        joint.style.display = "flex";
-                        joint.style.width = ".5em";
-                        joint.style.height = ".5em";
                         floorRowDiv.appendChild(joint);
                         jointsRow.push(joint);
                     }
@@ -124,19 +114,13 @@ export class BoardView {
     }
 
     createWall(horizontal) {
-        let span = document.createElement("span");
-        span.style.borderWidth = "0px";
-        span.style.borderStyle = "solid";
-        span.style.margin = "0";
-        span.style.padding = "0";
-        span.style.display = "flex";
+        let span = document.createElement("div");
+        span.classList.add("quoridor-wall");
         if (horizontal) {
-            span.style.height = ".5em";
-            span.style.width = "3em";
+            span.classList.add("quoridor-horizontal");
         } else {
-            span.style.width = ".5em";
+            span.classList.add("quoridor-vertical");
         }
-        span.style.background = "#ccc";
 
         return span;
     }
@@ -163,15 +147,21 @@ export class BoardView {
 
         for (let y = 0; y <= 8; y ++) {
             for (let x = 0; x <= 8; x ++) {
-                this.getCell(x, y).style.backgroundColor = "#eee";
+                this.getCell(x, y).classList.remove("closed");
+                this.getCell(x, y).classList.remove("hover");
+                this.getCell(x, y).classList.remove("player1");
+                this.getCell(x, y).classList.remove("player2");
                 if (y != 8) {
-                    this.getWall(x, y, true).style.backgroundColor = "#ccc";
+                    this.getWall(x, y, true).classList.remove("closed");
+                    this.getWall(x, y, true).classList.remove("hover");
                 }
                 if (x != 8) {
-                    this.getWall(x, y, false).style.backgroundColor = "#ccc";
+                    this.getWall(x, y, false).classList.remove("closed");
+                    this.getWall(x, y, false).classList.remove("hover");
                 }
                 if (y != 8 && x != 8) {
-                    this.getJoint(x, y).style.backgroundColor = "#ccc";
+                    this.getJoint(x, y).classList.remove("closed");
+                    this.getJoint(x, y).classList.remove("hover");
                 }
             }
         }
@@ -179,14 +169,14 @@ export class BoardView {
         for (let y = 0; y <= 8; y ++) {
             for (let x = 0; x <= 8; x ++) {
                 if (game.get_wall_status(x,y) == wasm.WallState.Horizontal) {
-                    this.getWall(x, y, true).style.backgroundColor = "black";
-                    this.getJoint(x, y).style.backgroundColor = "black";
-                    this.getWall(x + 1, y, true).style.backgroundColor = "black";
+                    this.getWall(x, y, true).classList.add("closed");
+                    this.getJoint(x, y).classList.add("closed");
+                    this.getWall(x + 1, y, true).classList.add("closed");
                 }
                 if (game.get_wall_status(x,y) == wasm.WallState.Vertical) {
-                    this.getWall(x, y, false).style.backgroundColor = "black";
-                    this.getJoint(x, y).style.backgroundColor = "black";
-                    this.getWall(x, y + 1, false).style.backgroundColor = "black";
+                    this.getWall(x, y, false).classList.add("closed");
+                    this.getJoint(x, y).classList.add("closed");
+                    this.getWall(x, y + 1, false).classList.add("closed");
                 }
             }
         }
@@ -196,23 +186,23 @@ export class BoardView {
                 let x = this.focused.x;
                 let y = this.focused.y;
                 if (game.copy().apply_move({"AddWall": {location: [x, y], orientation: "Horizontal"}})) {
-                    this.getWall(x, y, true).style.backgroundColor = "#333";
-                    this.getJoint(x, y).style.backgroundColor = "#333";
-                    this.getWall(x + 1, y, true).style.backgroundColor = "#333";
+                    this.getWall(x, y, true).classList.add("hover");
+                    this.getJoint(x, y).classList.add("hover");
+                    this.getWall(x + 1, y, true).classList.add("hover");
                 }
             }
             if (this.focused.kind == "vertical") {
                 let x = this.focused.x;
                 let y = this.focused.y;
                 if (game.copy().apply_move({"AddWall": {location: [x, y], orientation: "Vertical"}})) {
-                    this.getWall(x, y, false).style.backgroundColor = "#333";
-                    this.getJoint(x, y).style.backgroundColor = "#333";
-                    this.getWall(x, y + 1, false).style.backgroundColor = "#333";
+                    this.getWall(x, y, false).classList.add("hover");
+                    this.getJoint(x, y).classList.add("hover");
+                    this.getWall(x, y + 1, false).classList.add("hover");
                 }
             }
         }
 
-        this.getCell(game.get_location(1).x, game.get_location(1).y).style.backgroundColor = "red";
-        this.getCell(game.get_location(2).x, game.get_location(2).y).style.backgroundColor = "blue";    
+        this.getCell(game.get_location(1).x, game.get_location(1).y).classList.add("player1");
+        this.getCell(game.get_location(2).x, game.get_location(2).y).classList.add("player2");
     }
 }

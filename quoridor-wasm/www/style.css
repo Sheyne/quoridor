@@ -1,0 +1,64 @@
+div.quoridor-board  {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    max-width: 40em;
+    aspect-ratio: 1/1;
+}
+div.quoridor-board .quoridor-cell-row {
+    margin: 0;
+    padding: 0;
+    height: 10%;
+    line-height: 0;
+    display: flex;
+}
+div.quoridor-board .quoridor-wall-row {
+    margin: 0;
+    padding: 0;
+    height: 1.25%;
+    line-height: 0;
+    display: flex;
+}
+div.quoridor-board .quoridor-row div {
+    margin: 0;
+    padding: 0;
+    line-height: 0;
+    display: flex;
+}
+
+div.quoridor-board .quoridor-row .quoridor-cell {
+    width: 10%;
+    height: 100%;
+    background-color: #eee;
+}
+div.quoridor-board .quoridor-row .quoridor-wall.closed {
+    background-color: black;
+}
+
+div.quoridor-board .quoridor-row .quoridor-wall.hover {
+    background-color: #888;
+}
+
+div.quoridor-board .quoridor-row .quoridor-wall {
+    background: #ccc;
+    height: 100%;
+}
+
+div.quoridor-board .quoridor-row .quoridor-horizontal {
+    width: 10%;
+}
+
+div.quoridor-board .quoridor-row .quoridor-vertical {
+    width: 1.25%;
+}
+
+div.quoridor-board .quoridor-row .quoridor-joint {
+    width: 1.25%;
+}
+div.quoridor-board .quoridor-cell.player1 {
+    background-color: red;
+}
+
+div.quoridor-board .quoridor-cell.player2 {
+    background-color: blue;
+}
