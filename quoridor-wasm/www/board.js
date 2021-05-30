@@ -36,7 +36,7 @@ export class BoardView {
         this.render(this.lastGame);
     }
 
-    init() {
+    constructor(game) {
         this.div = document.createElement("div");
         this.div.classList.add("quoridor-board-wrapper-wrapper");
         let wrapper = document.createElement("div");
@@ -47,23 +47,74 @@ export class BoardView {
         wrapper.appendChild(div);
 
         div.addEventListener("click", e => {
-            if (e.toElement.data) {
+            if (e.toElement && e.toElement.data) {
                 let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
-                this.click(e, info);
+                let {kind, x,  y} = info;
+                let move = null;
+                if (kind == "horizontal") {
+                    move = {"AddWall": {location: [x, y], orientation: "Horizontal"}};
+                }
+                if (kind == "vertical") {
+                    move = {"AddWall": {location: [x, y], orientation: "Vertical"}};
+                }
+                if (kind == "cell") {
+                    let my_loc = this.lastGame.get_location(this.lastGame.current_player());
+                    let direction = null;
+                    if (x == my_loc.x + 1 && y == my_loc.y) {
+                        direction = "Right";
+                    }
+                    if (x == my_loc.x - 1 && y == my_loc.y) {
+                        direction = "Left";
+                    }
+                    if (x == my_loc.x && y == my_loc.y + 1) {
+                        direction = "Down";
+                    }
+                    if (x == my_loc.x && y == my_loc.y - 1) {
+                        direction = "Up";
+                    }
+                    if (direction) {
+                        move = {"MoveToken": direction};
+                    }
+                }
+                if (move != null) {
+                    if (this.onmove) {
+                        this.onmove(move);
+                    }
+                }
             }
         });
         div.addEventListener("mousemove", e => {
-            if (e.toElement.data) {
+            if (e.toElement && e.toElement.data) {
                 let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
                 this.mousemove(e, info);
             }
         });
         div.addEventListener("mouseout", e => {
-            if (e.toElement.data) {
+            if (e.toElement && e.toElement.data) {
                 let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
                 this.mouseout(e, info);
             }
         });
+
+        document.addEventListener("keyup", e => {
+            let move = null;
+            if (e.code == "ArrowUp") {
+                move = {"MoveToken": "Up"};
+            }
+            else if (e.code == "ArrowDown") {
+                move = {"MoveToken": "Down"};
+            }
+            else if (e.code == "ArrowLeft") {
+                move = {"MoveToken": "Left"};
+            }
+            else if (e.code == "ArrowRight") {
+                move = {"MoveToken": "Right"};
+            }
+            if (this.onmove) {
+                this.onmove(move);
+            }
+        });    
+
         this.cells = [];
         this.horizontal = [];
         this.vertical = [];
@@ -73,9 +124,12 @@ export class BoardView {
             let rowDiv = document.createElement("div");
             rowDiv.classList.add("quoridor-cell-row");
             rowDiv.classList.add("quoridor-row");
-            let floorRowDiv = document.createElement("div");
-            floorRowDiv.classList.add("quoridor-wall-row");
-            floorRowDiv.classList.add("quoridor-row");
+            let floorRowDiv;
+            if (y != 8) {
+                floorRowDiv = document.createElement("div");
+                floorRowDiv.classList.add("quoridor-wall-row");
+                floorRowDiv.classList.add("quoridor-row");
+            }
             let row = [];
             let wallRow = [];
             let floorWallRow = [];
@@ -108,7 +162,9 @@ export class BoardView {
                 }
             }
             div.appendChild(rowDiv);
-            div.appendChild(floorRowDiv);
+            if (y != 8) {
+                div.appendChild(floorRowDiv);
+            }
             this.cells.push(row);
             this.vertical.push(wallRow);
             this.horizontal.push(floorWallRow);
@@ -117,6 +173,8 @@ export class BoardView {
 
         this.infoDiv = document.createElement("div");
         div.appendChild(this.infoDiv);
+
+        this.render(game);
     }
 
     createWall(horizontal) {

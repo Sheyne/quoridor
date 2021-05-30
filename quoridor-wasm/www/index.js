@@ -42,65 +42,30 @@ playAi.onclick = async () => {
 };
 
 function startgame() {
-    let view = new BoardView();
-    view.init();
+    let view = new BoardView(game);
     document.body.appendChild(view.div);
     
     opponent.onmessage = data => {
+        if (my_turn) {
+            return;
+        }
         game.apply_move(data);
         view.render(game);
         my_turn = true;
     };
 
-    view.onclick = (info, event) => {
+    view.onmove = (move) => {
         if (!my_turn)
             return;
-        let {kind, x,  y} = info;
-        let move = null;
-        if (kind == "horizontal") {
-            move = {"AddWall": {location: [x, y], orientation: "Horizontal"}};
-        }
-        if (kind == "vertical") {
-            move = {"AddWall": {location: [x, y], orientation: "Vertical"}};
-        }
-        if (move != null) {
-            if (game.apply_move(move)) {
-                my_turn = false;
-                opponent.postMessage(move);
-                view.render(game);
-            }
+        if (game.apply_move(move)) {
+            my_turn = false;
+            opponent.postMessage(move);
+            view.render(game);
         }
         view.render(game);
     };
 
     view.render(game);
-
-    window.addEventListener("keyup", function (e) {
-        if (!my_turn)
-            return;
-        let move = null;
-        if (e.code == "ArrowUp") {
-            move = {"MoveToken": "Up"};
-        }
-        else if (e.code == "ArrowDown") {
-            move = {"MoveToken": "Down"};
-        }
-        else if (e.code == "ArrowLeft") {
-            move = {"MoveToken": "Left"};
-        }
-        else if (e.code == "ArrowRight") {
-            move = {"MoveToken": "Right"};
-        }
-        if (move != null) {
-            if (game.apply_move(move)) {
-                my_turn = false;
-                opponent.postMessage(move);
-                view.render(game);
-            }
-        }
-        view.render(game);
-    });
-
 }
 
 let game = new wasm.Game();
