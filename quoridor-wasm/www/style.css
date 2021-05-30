@@ -1,9 +1,22 @@
+div.quoridor-board-wrapper-wrapper {
+    width: 100%;
+    max-width: 40em;
+}
+div.quoridor-board-wrapper {
+    width: 100%;
+    padding-top: 100%;
+    position: relative;
+}
 div.quoridor-board  {
     margin: 0;
     padding: 0;
     width: 100%;
-    max-width: 40em;
-    aspect-ratio: 1/1;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;  
+    /* aspect-ratio: 1/1; */
 }
 div.quoridor-board .quoridor-cell-row {
     margin: 0;

@@ -38,21 +38,27 @@ export class BoardView {
 
     init() {
         this.div = document.createElement("div");
-        this.div.classList.add("quoridor-board");
+        this.div.classList.add("quoridor-board-wrapper-wrapper");
+        let wrapper = document.createElement("div");
+        wrapper.classList.add("quoridor-board-wrapper");
+        this.div.appendChild(wrapper);
+        let div = document.createElement("div");
+        div.classList.add("quoridor-board");
+        wrapper.appendChild(div);
 
-        this.div.addEventListener("click", e => {
+        div.addEventListener("click", e => {
             if (e.toElement.data) {
                 let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
                 this.click(e, info);
             }
         });
-        this.div.addEventListener("mousemove", e => {
+        div.addEventListener("mousemove", e => {
             if (e.toElement.data) {
                 let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
                 this.mousemove(e, info);
             }
         });
-        this.div.addEventListener("mouseout", e => {
+        div.addEventListener("mouseout", e => {
             if (e.toElement.data) {
                 let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
                 this.mouseout(e, info);
@@ -101,8 +107,8 @@ export class BoardView {
                     }
                 }
             }
-            this.div.appendChild(rowDiv);
-            this.div.appendChild(floorRowDiv);
+            div.appendChild(rowDiv);
+            div.appendChild(floorRowDiv);
             this.cells.push(row);
             this.vertical.push(wallRow);
             this.horizontal.push(floorWallRow);
@@ -110,7 +116,7 @@ export class BoardView {
         }
 
         this.infoDiv = document.createElement("div");
-        this.div.appendChild(this.infoDiv);
+        div.appendChild(this.infoDiv);
     }
 
     createWall(horizontal) {
