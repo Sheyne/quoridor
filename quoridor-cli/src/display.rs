@@ -138,8 +138,8 @@ impl Display {
                             Move::AddWall {
                                 location: _,
                                 orientation: _,
-                            } => Move::MoveToken(Direction::Up),
-                            Move::MoveToken(_) => Move::AddWall {
+                            } => Move::MoveTo(0, 0),
+                            Move::MoveTo(_, _) => Move::AddWall {
                                 location: (4, 4),
                                 orientation: Orientation::Horizontal,
                             },
@@ -151,35 +151,59 @@ impl Display {
                             location: _,
                         } => *orientation = orientation.other(),
 
-                        Move::MoveToken(_) => (),
+                        Move::MoveTo(_, _) => (),
                     },
                     KeyCode::Left => match candidate_move {
                         Move::AddWall {
                             orientation: _,
                             location: (x, _),
                         } => *x = if *x > 0 { *x - 1 } else { 0 },
-                        Move::MoveToken(d) => *d = Direction::Left,
+                        Move::MoveTo(_, _) => {
+                            if board.player_location(*player).0 > 0 {
+                                *candidate_move = Move::MoveTo(
+                                    board.player_location(*player).0 - 1,
+                                    board.player_location(*player).1,
+                                )
+                            }
+                        }
                     },
                     KeyCode::Right => match candidate_move {
                         Move::AddWall {
                             orientation: _,
                             location: (x, _),
                         } => *x = if *x < 7 { *x + 1 } else { 7 },
-                        Move::MoveToken(d) => *d = Direction::Right,
+                        Move::MoveTo(_, _) => {
+                            *candidate_move = Move::MoveTo(
+                                board.player_location(*player).0 + 1,
+                                board.player_location(*player).1,
+                            )
+                        }
                     },
                     KeyCode::Up => match candidate_move {
                         Move::AddWall {
                             orientation: _,
                             location: (_, y),
                         } => *y = if *y > 0 { *y - 1 } else { 0 },
-                        Move::MoveToken(d) => *d = Direction::Up,
+                        Move::MoveTo(_, _) => {
+                            if board.player_location(*player).1 > 0 {
+                                *candidate_move = Move::MoveTo(
+                                    board.player_location(*player).0,
+                                    board.player_location(*player).1 - 1,
+                                )
+                            }
+                        }
                     },
                     KeyCode::Down => match candidate_move {
                         Move::AddWall {
                             orientation: _,
                             location: (_, y),
                         } => *y = if *y < 7 { *y + 1 } else { 7 },
-                        Move::MoveToken(d) => *d = Direction::Down,
+                        Move::MoveTo(_, _) => {
+                            *candidate_move = Move::MoveTo(
+                                board.player_location(*player).0,
+                                board.player_location(*player).1 + 1,
+                            )
+                        }
                     },
                     _ => {}
                 }
@@ -287,18 +311,13 @@ fn display(board: &BoardV1, player_and_move: Option<(&Player, &Move)>) -> Result
 
     if let Some((player, candidate_move)) = player_and_move {
         if board.is_legal(*player, candidate_move) {
-            if let Move::MoveToken(d) = candidate_move {
-                if let Some(candidate_pos) = d.shift(*board.location(player)) {
-                    queue!(
-                        stdout(),
-                        SetForegroundColor(DisplayWallState::Candidate.to_color()),
-                        crossterm::cursor::MoveTo(
-                            (3 * candidate_pos.0) as u16,
-                            (2 * candidate_pos.1) as u16
-                        ),
-                        Print("#")
-                    )?;
-                }
+            if let Move::MoveTo(nx, ny) = candidate_move {
+                queue!(
+                    stdout(),
+                    SetForegroundColor(DisplayWallState::Candidate.to_color()),
+                    crossterm::cursor::MoveTo((3 * nx) as u16, (2 * ny) as u16),
+                    Print("#")
+                )?;
             }
         }
     }

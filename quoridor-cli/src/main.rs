@@ -189,7 +189,7 @@ fn main() -> Result<(), Error> {
         player2: opts.player2.clone().try_into()?,
         display: display::Display::new()?,
         board: BoardV2::empty(),
-        candidate: Move::MoveToken(Direction::Down),
+        candidate: Move::MoveTo(0, 0),
     };
 
     let mut current_player = Player::Player1;

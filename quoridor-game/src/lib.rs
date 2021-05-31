@@ -31,7 +31,7 @@ pub trait Board {
         location: (u8, u8),
         orientation: Orientation,
     ) -> Result<(), ()>;
-    fn move_token(&mut self, player: Player, direction: Direction) -> Result<(), ()>;
+    fn move_token(&mut self, player: Player, new_location: (u8, u8)) -> Result<(), ()>;
     fn is_probably_legal(&self, player: Player, candidate_move: &Move) -> bool {
         self.is_legal(player, candidate_move)
     }
@@ -43,7 +43,7 @@ pub trait Board {
                 location,
                 orientation,
             } => self.add_wall(player, *location, *orientation),
-            Move::MoveToken(d) => self.move_token(player, *d),
+            Move::MoveTo(x, y) => self.move_token(player, (*x, *y)),
         }
     }
 
@@ -83,9 +83,8 @@ pub trait Board {
                 Direction::Right,
             ]
             .iter()
-            .filter(|dir| self.is_passible(loc, **dir))
-            .map(|x| x.shift(loc))
-            .filter_map(|x| x);
+            .filter_map(|d| d.shift(loc))
+            .filter(|(nx, ny)| self.is_passible(loc, (*nx, *ny)));
 
             let cost = costs[loc.0 as usize][loc.1 as usize] + 1;
             for neighbor in neighbors {
@@ -103,7 +102,7 @@ pub trait Board {
         None
     }
 
-    fn is_passible(&self, location: (u8, u8), direction: Direction) -> bool;
+    fn is_passible(&self, location: (u8, u8), new_location: (u8, u8)) -> bool;
 
     fn legal_moves(&self, player: Player) -> Vec<Move> {
         all_moves()
@@ -125,16 +124,9 @@ fn all_moves() -> impl Iterator<Item = Move> {
             })
         });
 
-    let shifts = [
-        Direction::Up,
-        Direction::Down,
-        Direction::Left,
-        Direction::Right,
-    ]
-    .iter()
-    .map(|x| Move::MoveToken(*x));
+    let locations = (0..9).flat_map(move |x| (0..9).map(move |y| Move::MoveTo(x, y)));
 
-    shifts.chain(adds_walls)
+    locations.chain(adds_walls)
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Serialize, Deserialize, Debug)]
@@ -159,7 +151,6 @@ impl Player {
         }
     }
 }
-
 impl Direction {
     pub fn shift(&self, position: (u8, u8)) -> Option<(u8, u8)> {
         fn add((ax, ay): &(u8, u8), (bx, by): &(i8, i8)) -> Option<(u8, u8)> {
@@ -180,12 +171,11 @@ impl Direction {
         }
     }
 }
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub enum Move {
     AddWall {
         orientation: Orientation,
         location: (u8, u8),
     },
-    MoveToken(Direction),
+    MoveTo(u8, u8),
 }

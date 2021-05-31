@@ -20,7 +20,7 @@
             "program": "${workspaceRoot}/target/debug/quoridor-cli",
             "args": [
                 "keyboard",
-                "rubot"
+                "greedy-ai"
             ],
         }
     ]

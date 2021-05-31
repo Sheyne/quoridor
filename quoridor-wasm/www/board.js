@@ -58,23 +58,7 @@ export class BoardView {
                     move = {"AddWall": {location: [x, y], orientation: "Vertical"}};
                 }
                 if (kind == "cell") {
-                    let my_loc = this.lastGame.get_location(this.lastGame.current_player());
-                    let direction = null;
-                    if (x == my_loc.x + 1 && y == my_loc.y) {
-                        direction = "Right";
-                    }
-                    if (x == my_loc.x - 1 && y == my_loc.y) {
-                        direction = "Left";
-                    }
-                    if (x == my_loc.x && y == my_loc.y + 1) {
-                        direction = "Down";
-                    }
-                    if (x == my_loc.x && y == my_loc.y - 1) {
-                        direction = "Up";
-                    }
-                    if (direction) {
-                        move = {"MoveToken": direction};
-                    }
+                    move = {"MoveTo": [x, y]};
                 }
                 if (move != null) {
                     if (this.onmove) {
@@ -98,20 +82,24 @@ export class BoardView {
 
         document.addEventListener("keyup", e => {
             let move = null;
+            let location = this.lastGame.get_location(this.lastGame.current_player());
             if (e.code == "ArrowUp") {
-                move = {"MoveToken": "Up"};
+                move = {"MoveTo": [location.x, location.y - 1]};
             }
             else if (e.code == "ArrowDown") {
-                move = {"MoveToken": "Down"};
+                move = {"MoveTo": [location.x, location.y + 1]};
             }
             else if (e.code == "ArrowLeft") {
-                move = {"MoveToken": "Left"};
+                move = {"MoveTo": [location.x - 1, location.y]};
             }
             else if (e.code == "ArrowRight") {
-                move = {"MoveToken": "Right"};
+                move = {"MoveTo": [location.x + 1, location.y]};
             }
-            if (this.onmove) {
-                this.onmove(move);
+            if (move) {
+                if (move.MoveTo[0] >= 0 && move.MoveTo[1] >= 0 && move.MoveTo[0] <= 8 && move.MoveTo[1] <= 8)
+                if (this.onmove) {
+                    this.onmove(move);
+                }
             }
         });    
 

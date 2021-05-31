@@ -46,14 +46,27 @@ impl Board for BoardV1 {
         }
     }
 
-    fn is_passible(&self, loc: (u8, u8), direction: Direction) -> bool {
-        direction.shift(loc).is_some()
-            && match direction {
-                Direction::Down => self.cell(&(loc.0, loc.1)).bottom == WallState::Open,
-                Direction::Up => self.cell(&(loc.0, loc.1 - 1)).bottom == WallState::Open,
-                Direction::Left => self.cell(&(loc.0 - 1, loc.1)).right == WallState::Open,
-                Direction::Right => self.cell(&(loc.0, loc.1)).right == WallState::Open,
-            }
+    fn is_passible(&self, (x, y): (u8, u8), (nx, ny): (u8, u8)) -> bool {
+        if nx > 8 {
+            return false;
+        }
+        if ny > 8 {
+            return false;
+        }
+        if x > 8 {
+            return false;
+        }
+        if y > 8 {
+            return false;
+        }
+
+        match (nx as i8 - x as i8, ny as i8 - y as i8) {
+            (1, 0) => self.cell(&(x, y)).right == WallState::Open,
+            (0, 1) => self.cell(&(x, y)).bottom == WallState::Open,
+            (0, -1) => self.cell(&(x, y - 1)).bottom == WallState::Open,
+            (-1, 0) => self.cell(&(x - 1, y)).right == WallState::Open,
+            _ => false,
+        }
     }
 
     fn get_wall_state(&self, _location: (u8, u8)) -> Option<Orientation> {
@@ -62,15 +75,11 @@ impl Board for BoardV1 {
 
     fn player_location(&self, player: Player) -> (u8, u8) {
         let loc = self.location(&player);
-        (loc.0 as u8, loc.1 as u8)
+        (loc.0, loc.1)
     }
 
-    fn move_token(&mut self, player: Player, direction: Direction) -> Result<(), ()> {
-        let loc = self.location(&player);
-        let loc = (loc.0 as u8, loc.1 as u8);
-        if let Some(new_loc) = direction.shift(loc) {
-            *self.location_mut(&player) = new_loc;
-        }
+    fn move_token(&mut self, player: Player, new_location: (u8, u8)) -> Result<(), ()> {
+        *self.location_mut(&player) = new_location;
         Ok(())
     }
 
@@ -136,9 +145,9 @@ impl Board for BoardV1 {
                     && hypo.distance_to_goal(Player::Player1).is_some()
                     && hypo.distance_to_goal(Player::Player2).is_some()
             }
-            Move::MoveToken(direction) => {
+            Move::MoveTo(nx, ny) => {
                 let (x, y) = self.location(&player);
-                self.is_passible((*x as u8, *y as u8), *direction)
+                self.is_passible((*x, *y), (*nx, *ny))
             }
         }
     }
