@@ -206,7 +206,28 @@ impl Board for BoardV2 {
 
                 added_wall && unfilled && p1_can_exit && p2_can_exit
             }
-            Move::MoveTo(nx, ny) => self.is_passible(self.player_location(player), (*nx, *ny)),
+            Move::MoveTo(nx, ny) => {
+                let my_location = self.player_location(player);
+                let other_location = self.player_location(player.other());
+                if (*nx, *ny) == other_location || (*nx, *ny) == my_location {
+                    false
+                } else if self.is_passible(my_location, (*nx, *ny)) {
+                    true
+                } else if self.is_passible(my_location, other_location) {
+                    let (tx, ty) = (
+                        other_location.0 - my_location.0,
+                        other_location.1 - my_location.1,
+                    );
+                    let following_trajectory = (other_location.0 + tx, other_location.1 + ty);
+                    if self.is_passible(other_location, following_trajectory) {
+                        following_trajectory == (*nx, *ny)
+                    } else {
+                        self.is_passible(other_location, (*nx, *ny))
+                    }
+                } else {
+                    false
+                }
+            }
         }
     }
 
