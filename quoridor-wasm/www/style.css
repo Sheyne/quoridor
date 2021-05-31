@@ -75,3 +75,9 @@ div.quoridor-board .quoridor-cell.player1 {
 div.quoridor-board .quoridor-cell.player2 {
     background-color: blue;
 }
+div.quoridor-board .quoridor-cell.arrivable1 {
+    background-color: #f99;
+}
+div.quoridor-board .quoridor-cell.arrivable2 {
+    background-color: #99f;
+}

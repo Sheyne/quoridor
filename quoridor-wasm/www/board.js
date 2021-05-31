@@ -203,6 +203,8 @@ export class BoardView {
                 this.getCell(x, y).classList.remove("hover");
                 this.getCell(x, y).classList.remove("player1");
                 this.getCell(x, y).classList.remove("player2");
+                this.getCell(x, y).classList.remove("arrivable1");
+                this.getCell(x, y).classList.remove("arrivable2");
                 if (y != 8) {
                     this.getWall(x, y, true).classList.remove("closed");
                     this.getWall(x, y, true).classList.remove("hover");
@@ -220,6 +222,9 @@ export class BoardView {
         
         for (let y = 0; y <= 8; y ++) {
             for (let x = 0; x <= 8; x ++) {
+                if (game.copy().apply_move({"MoveTo": [x, y]})) {
+                    this.getCell(x, y).classList.add("arrivable" + game.current_player());
+                }
                 if (game.get_wall_status(x,y) == wasm.WallState.Horizontal) {
                     this.getWall(x, y, true).classList.add("closed");
                     this.getJoint(x, y).classList.add("closed");
