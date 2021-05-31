@@ -110,6 +110,13 @@ impl Game {
         }
     }
 
+    pub fn result(&self) -> Option<u8> {
+        self.board.result().map(|p| match p {
+            Player::Player1 => 1,
+            Player::Player2 => 2,
+        })
+    }
+
     pub fn copy(&self) -> Game {
         Game {
             board: self.board.clone(),

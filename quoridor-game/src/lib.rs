@@ -31,6 +31,17 @@ pub trait Board {
         location: (u8, u8),
         orientation: Orientation,
     ) -> Result<(), ()>;
+
+    fn result(&self) -> Option<Player> {
+        if self.player_location(Player::Player1).1 == 8 {
+            Some(Player::Player1)
+        } else if self.player_location(Player::Player2).1 == 0 {
+            Some(Player::Player2)
+        } else {
+            None
+        }
+    }
+
     fn move_token(&mut self, player: Player, new_location: (u8, u8)) -> Result<(), ()>;
     fn is_probably_legal(&self, player: Player, candidate_move: &Move) -> bool {
         self.is_legal(player, candidate_move)

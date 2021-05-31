@@ -3,7 +3,7 @@ import * as wasm from "quoridor-wasm";
 export class BoardView {
     getInfoForEvent(event, kind, x, y) {
         if (kind == "horizontal") {
-            let fraction = (event.pageX - event.toElement.offsetLeft) / event.toElement.offsetWidth;
+            let fraction = (event.pageX - this.div.offsetLeft - event.toElement.offsetLeft) / event.toElement.offsetWidth;
             if (fraction < 0.5) {
                 x -= 1;
             }
@@ -11,7 +11,7 @@ export class BoardView {
             if (x > 7) { x = 7; }
         }
         if (kind == "vertical") {
-            let fraction = (event.pageY - event.toElement.offsetTop) / event.toElement.offsetHeight;
+            let fraction = (event.pageY - this.div.offsetTop - event.toElement.offsetTop) / event.toElement.offsetHeight;
             if (fraction < 0.5) {
                 y -= 1;
             }
@@ -194,8 +194,13 @@ export class BoardView {
 
     render(game) {
         this.lastGame = game.copy();
-        this.infoDiv.innerHTML = "Player 1 has " + game.available_walls(1) + " walls left.<br/>" +
-                                 "Player 2 has " + game.available_walls(2) + " walls left.<br/>";
+        let result;
+        if (result = game.result()) {
+            this.infoDiv.innerHTML = "Player " + result + " wins";
+        }else {
+            this.infoDiv.innerHTML = "Player 1 has " + game.available_walls(1) + " walls left.<br/>" +
+                                    "Player 2 has " + game.available_walls(2) + " walls left.<br/>";
+        }
 
         for (let y = 0; y <= 8; y ++) {
             for (let x = 0; x <= 8; x ++) {
