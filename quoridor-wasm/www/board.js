@@ -79,30 +79,7 @@ export class BoardView {
                 this.mouseout(e, info);
             }
         });
-
-        document.addEventListener("keyup", e => {
-            let move = null;
-            let location = this.lastGame.get_location(this.lastGame.current_player());
-            if (e.code == "ArrowUp") {
-                move = {"MoveTo": [location.x, location.y - 1]};
-            }
-            else if (e.code == "ArrowDown") {
-                move = {"MoveTo": [location.x, location.y + 1]};
-            }
-            else if (e.code == "ArrowLeft") {
-                move = {"MoveTo": [location.x - 1, location.y]};
-            }
-            else if (e.code == "ArrowRight") {
-                move = {"MoveTo": [location.x + 1, location.y]};
-            }
-            if (move) {
-                if (move.MoveTo[0] >= 0 && move.MoveTo[1] >= 0 && move.MoveTo[0] <= 8 && move.MoveTo[1] <= 8)
-                if (this.onmove) {
-                    this.onmove(move);
-                }
-            }
-        });    
-
+        
         this.cells = [];
         this.horizontal = [];
         this.vertical = [];

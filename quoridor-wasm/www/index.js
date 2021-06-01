@@ -1,5 +1,6 @@
 import * as wasm from "quoridor-wasm";
 import { BoardView } from "./board";
+import { HistoryView } from "./history-view";
 import Worker from "./bootstrap.worker.js";
 import { getConnection } from "./rtc";
 
@@ -22,6 +23,7 @@ playFriend.onclick = async () => {
     opponent.onstart();
 };
 playAi.onclick = async () => {
+    aiOpponent = true;
     document.body.removeChild(playFriend);
     document.body.removeChild(playAi);
 
@@ -46,6 +48,8 @@ function startgame() {
     let result = null;
     let game = new wasm.Game();
     let view = new BoardView(game);
+    let history = new HistoryView();
+    history.addBoard(game.copy(), {"InitialSetUp": null});
 
     document.body.appendChild(view.div);
     let infoDiv = document.createElement("div");
@@ -53,12 +57,17 @@ function startgame() {
     playAgain.textContent = "Play Again";
     document.body.appendChild(infoDiv);
     document.body.appendChild(playAgain);
+    document.body.appendChild(history.div);
+
+    history.onselect = (game, _index) => {
+        view.render(game);
+    };
 
     let restart = () => {
         game = new wasm.Game();
         result = null;
         myTurn = firstPlayer;
-        view.render(game);
+        // view.render(game);
     };
 
     playAgain.addEventListener("click", () => {
@@ -84,7 +93,7 @@ function startgame() {
                 return;
             }
             game.apply_move(data);
-            view.render(game);
+            history.addBoard(game.copy(), data);
 
             updateResult();
             myTurn = true;
@@ -92,20 +101,33 @@ function startgame() {
     };
 
     view.onmove = (move) => {
-        if (!myTurn || result)
-            return;
+        if (!history.isAtPresent()) {
+            if (aiOpponent) {
+                history.clearPastSelected();
+                let movesToSelected = history.movesToSelected();
+                opponent.postMessage({"StartAt": movesToSelected});
+                game.free();
+                game = history.selectedGame();
+            } else {
+                if (!myTurn || result)
+                    return;
+            }
+        } else {
+            if (!myTurn || result)
+                return;
+        }
+        
         if (game.apply_move(move)) {
+            history.addBoard(game.copy(), move);
             myTurn = false;
             opponent.postMessage(move);
-            view.render(game);
 
             updateResult();
         }
     };
-
-    view.render(game);
 }
 
 let firstPlayer = true;
 let myTurn = true;
+let aiOpponent = false;
 let opponent = {"onstart": startgame};

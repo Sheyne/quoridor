@@ -7,6 +7,12 @@ onmessage = function(e) {
         if (e.data.move.Restart !== undefined) {
             ai.free();
             ai = new wasm.Ai();
+        } else if (e.data.move.StartAt) {
+            ai.free();
+            ai = new wasm.Ai();
+            for (let move of e.data.move.StartAt) {
+                ai.send(move);
+            }
         } else {
             ai.send(e.data.move);
             postMessage(ai.receive());

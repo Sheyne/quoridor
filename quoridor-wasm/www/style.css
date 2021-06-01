@@ -81,3 +81,6 @@ div.quoridor-board .quoridor-cell.arrivable1 {
 div.quoridor-board .quoridor-cell.arrivable2 {
     background-color: #99f;
 }
+.history .history-entry.selected {
+    background-color: #99f;
+}
