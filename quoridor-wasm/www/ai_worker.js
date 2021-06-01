@@ -5,6 +5,7 @@ let ai = new wasm.Ai();
 onmessage = function(e) {
     if (e.data.move) {
         if (e.data.move.Restart !== undefined) {
+            ai.free();
             ai = new wasm.Ai();
         } else {
             ai.send(e.data.move);

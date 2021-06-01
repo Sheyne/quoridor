@@ -190,6 +190,10 @@ export class BoardView {
     }
 
     render(game) {
+        if (this.lastGame && this.lastGame !== game) {
+            this.lastGame.free();
+            this.lastGame = null;
+        }
         this.lastGame = game.copy();
 
         for (let y = 0; y <= 8; y ++) {
@@ -217,9 +221,12 @@ export class BoardView {
         
         for (let y = 0; y <= 8; y ++) {
             for (let x = 0; x <= 8; x ++) {
-                if (game.copy().apply_move({"MoveTo": [x, y]})) {
+                let gameCopy = game.copy();
+                if (gameCopy.apply_move({"MoveTo": [x, y]})) {
                     this.getCell(x, y).classList.add("arrivable" + game.current_player());
                 }
+                gameCopy.free();
+                gameCopy = null;
                 if (game.get_wall_status(x,y) == wasm.WallState.Horizontal) {
                     this.getWall(x, y, true).classList.add("closed");
                     this.getJoint(x, y).classList.add("closed");
@@ -237,20 +244,26 @@ export class BoardView {
             if (this.focused.kind == "horizontal") {
                 let x = this.focused.x;
                 let y = this.focused.y;
-                if (game.copy().apply_move({"AddWall": {location: [x, y], orientation: "Horizontal"}})) {
+                let gameCopy = game.copy();
+                if (gameCopy.apply_move({"AddWall": {location: [x, y], orientation: "Horizontal"}})) {
                     this.getWall(x, y, true).classList.add("hover");
                     this.getJoint(x, y).classList.add("hover");
                     this.getWall(x + 1, y, true).classList.add("hover");
                 }
+                gameCopy.free();
+                gameCopy = null;
             }
             if (this.focused.kind == "vertical") {
                 let x = this.focused.x;
                 let y = this.focused.y;
-                if (game.copy().apply_move({"AddWall": {location: [x, y], orientation: "Vertical"}})) {
+                let gameCopy = game.copy();
+                if (gameCopy.apply_move({"AddWall": {location: [x, y], orientation: "Vertical"}})) {
                     this.getWall(x, y, false).classList.add("hover");
                     this.getJoint(x, y).classList.add("hover");
                     this.getWall(x, y + 1, false).classList.add("hover");
                 }
+                gameCopy.free();
+                gameCopy = null;
             }
         }
 
