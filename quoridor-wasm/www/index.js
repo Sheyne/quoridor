@@ -15,7 +15,8 @@ playFriend.onclick = async () => {
     document.body.removeChild(playAi);
 
     let connection = await getConnection();
-    my_turn = connection.kind == "serve";
+    myTurn = connection.kind == "serve";
+    firstPlayer = myTurn;
     connection.onmessage = e => opponent.onmessage(JSON.parse(e.data));
     opponent.postMessage = m => connection.send(JSON.stringify(m));
     opponent.onstart();
@@ -42,32 +43,69 @@ playAi.onclick = async () => {
 };
 
 function startgame() {
+    let result = null;
+    let game = new wasm.Game();
     let view = new BoardView(game);
+
     document.body.appendChild(view.div);
-    
-    opponent.onmessage = data => {
-        if (my_turn) {
-            return;
-        }
-        game.apply_move(data);
+    let infoDiv = document.createElement("div");
+    let playAgain = document.createElement("button");
+    playAgain.textContent = "Play Again";
+    document.body.appendChild(infoDiv);
+    document.body.appendChild(playAgain);
+
+    let restart = () => {
+        game = new wasm.Game();
+        result = null;
+        myTurn = firstPlayer;
         view.render(game);
-        my_turn = true;
+    };
+
+    playAgain.addEventListener("click", () => {
+        opponent.postMessage({"Restart": !myTurn});
+        restart();
+    });
+
+    let updateResult = () => {
+        if (result = game.result()) {
+            infoDiv.innerHTML = "Player " + result + " wins";
+        }else {
+            infoDiv.innerHTML = "Player 1 has " + game.available_walls(1) + " walls left.<br/>" +
+                                    "Player 2 has " + game.available_walls(2) + " walls left.<br/>";
+        }
+    };
+    updateResult();
+
+    opponent.onmessage = data => {
+        if (data.Restart !== undefined) {
+            restart();
+        } else {
+            if (myTurn || result) {
+                return;
+            }
+            game.apply_move(data);
+            view.render(game);
+
+            updateResult();
+            myTurn = true;
+        }
     };
 
     view.onmove = (move) => {
-        if (!my_turn)
+        if (!myTurn || result)
             return;
         if (game.apply_move(move)) {
-            my_turn = false;
+            myTurn = false;
             opponent.postMessage(move);
             view.render(game);
+
+            updateResult();
         }
-        view.render(game);
     };
 
     view.render(game);
 }
 
-let game = new wasm.Game();
-let my_turn = true;
+let firstPlayer = true;
+let myTurn = true;
 let opponent = {"onstart": startgame};

@@ -159,9 +159,6 @@ export class BoardView {
             this.joints.push(jointsRow);
         }
 
-        this.infoDiv = document.createElement("div");
-        div.appendChild(this.infoDiv);
-
         this.render(game);
     }
 
@@ -194,13 +191,6 @@ export class BoardView {
 
     render(game) {
         this.lastGame = game.copy();
-        let result;
-        if (result = game.result()) {
-            this.infoDiv.innerHTML = "Player " + result + " wins";
-        }else {
-            this.infoDiv.innerHTML = "Player 1 has " + game.available_walls(1) + " walls left.<br/>" +
-                                    "Player 2 has " + game.available_walls(2) + " walls left.<br/>";
-        }
 
         for (let y = 0; y <= 8; y ++) {
             for (let x = 0; x <= 8; x ++) {
