@@ -51,13 +51,16 @@ function startgame() {
     let history = new HistoryView();
     history.addBoard(game.copy(), {"InitialSetUp": null});
 
-    document.body.appendChild(view.div);
+    let playArea = document.createElement("div");
+    playArea.classList.add("play-area");
+    document.body.appendChild(playArea);
+    playArea.appendChild(view.div);
+    playArea.appendChild(history.div);
     let infoDiv = document.createElement("div");
     let playAgain = document.createElement("button");
     playAgain.textContent = "Play Again";
     document.body.appendChild(infoDiv);
     document.body.appendChild(playAgain);
-    document.body.appendChild(history.div);
 
     history.onselect = (game, _index) => {
         view.render(game);

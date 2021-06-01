@@ -1,6 +1,10 @@
+.play-area {
+    display: flex;
+}
 div.quoridor-board-wrapper-wrapper {
     width: 100%;
     max-width: 40em;
+    margin-right: 1em;
 }
 div.quoridor-board-wrapper {
     width: 100%;
@@ -80,6 +84,13 @@ div.quoridor-board .quoridor-cell.arrivable1 {
 }
 div.quoridor-board .quoridor-cell.arrivable2 {
     background-color: #99f;
+}
+.history {
+    overflow: auto;
+    max-height: 40em;
+}
+.history .history-entry {
+    padding: .2em;
 }
 .history .history-entry.selected {
     background-color: #99f;

@@ -47,6 +47,7 @@ export class HistoryView {
         }
         this.selectedBoard = index;
         this.states[this.selectedBoard].classList.add("selected");
+        this.states[this.selectedBoard].scrollIntoView();
 
         if (this.onselect) {
             this.onselect(this.states[this.selectedBoard].game, this.states[this.selectedBoard].index);
