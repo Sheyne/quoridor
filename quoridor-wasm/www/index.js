@@ -70,6 +70,8 @@ function startgame() {
         game = new wasm.Game();
         result = null;
         myTurn = firstPlayer;
+        history.selectBoard(0);
+        history.clearPastSelected();
         // view.render(game);
     };
 
