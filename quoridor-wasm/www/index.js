@@ -136,3 +136,12 @@ let firstPlayer = true;
 let myTurn = true;
 let aiOpponent = false;
 let opponent = {"onstart": startgame};
+
+switch (window.location.hash) {
+    case "#ai":
+        playAi.onclick();
+        break;
+    case "#friend":
+        playFriend.onclick();
+        break;
+}
