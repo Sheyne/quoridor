@@ -3,7 +3,7 @@ import * as wasm from "quoridor-wasm";
 export class BoardView {
     getInfoForEvent(event, kind, x, y) {
         if (kind == "horizontal") {
-            let fraction = (event.pageX - this.div.offsetLeft - event.toElement.offsetLeft) / event.toElement.offsetWidth;
+            let fraction = (event.pageX - this.div.offsetLeft - event.target.offsetLeft) / event.target.offsetWidth;
             if (fraction < 0.5) {
                 x -= 1;
             }
@@ -11,7 +11,7 @@ export class BoardView {
             if (x > 7) { x = 7; }
         }
         if (kind == "vertical") {
-            let fraction = (event.pageY - this.div.offsetTop - event.toElement.offsetTop) / event.toElement.offsetHeight;
+            let fraction = (event.pageY - this.div.offsetTop - event.target.offsetTop) / event.target.offsetHeight;
             if (fraction < 0.5) {
                 y -= 1;
             }
@@ -47,8 +47,8 @@ export class BoardView {
         wrapper.appendChild(div);
 
         div.addEventListener("click", e => {
-            if (e.toElement && e.toElement.data) {
-                let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
+            if (e.target && e.target.data) {
+                let info = this.getInfoForEvent(e, e.target.data.kind, e.target.data.x, e.target.data.y);
                 let {kind, x,  y} = info;
                 let move = null;
                 if (kind == "horizontal") {
@@ -68,14 +68,14 @@ export class BoardView {
             }
         });
         div.addEventListener("mousemove", e => {
-            if (e.toElement && e.toElement.data) {
-                let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
+            if (e.target && e.target.data) {
+                let info = this.getInfoForEvent(e, e.target.data.kind, e.target.data.x, e.target.data.y);
                 this.mousemove(e, info);
             }
         });
         div.addEventListener("mouseout", e => {
-            if (e.toElement && e.toElement.data) {
-                let info = this.getInfoForEvent(e, e.toElement.data.kind, e.toElement.data.x, e.toElement.data.y);
+            if (e.target && e.target.data) {
+                let info = this.getInfoForEvent(e, e.target.data.kind, e.target.data.x, e.target.data.y);
                 this.mouseout(e, info);
             }
         });
