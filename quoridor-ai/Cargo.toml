@@ -10,7 +10,7 @@ edition = "2018"
 quoridor-game = { path = "../quoridor-game" }
 fxhash = "0.2.1"
 mcts = {version = "0.3.0", optional = true}
-rubot = { optional = true }
+rubot = { version = "*", optional = true }
 
 [features]
 default = ["use-greedy", "use-mcts", "use-rubot"]

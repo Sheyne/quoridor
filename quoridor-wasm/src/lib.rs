@@ -1,5 +1,3 @@
-mod utils;
-
 use quoridor_ai::rubot::QuoridorGame;
 use quoridor_game::{bitpacked::BoardV2, Board, Player};
 use wasm_bindgen::prelude::*;
